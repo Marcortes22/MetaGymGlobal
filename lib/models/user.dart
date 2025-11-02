@@ -1,5 +1,7 @@
 class User {
   final String id;
+  final String gymId; // 🔥 NUEVO - ID del gimnasio
+  final String tenantId; // 🔥 NUEVO - ID del tenant
   final String userId;
   final String name;
   final String surname1;
@@ -15,6 +17,8 @@ class User {
   final String? profilePictureUrl;
   User({
     required this.id,
+    required this.gymId, // 🔥 NUEVO
+    required this.tenantId, // 🔥 NUEVO
     required this.userId,
     required this.name,
     required this.surname1,
@@ -32,6 +36,8 @@ class User {
   factory User.fromMap(String id, Map<String, dynamic> data) {
     return User(
       id: id,
+      gymId: data['gymId'] ?? '', // 🔥 NUEVO
+      tenantId: data['tenantId'] ?? '', // 🔥 NUEVO
       userId: data['user_id'],
       name: data['name'],
       surname1: data['surname1'],
@@ -51,6 +57,8 @@ class User {
   }
   Map<String, dynamic> toMap() {
     return {
+      'gymId': gymId, // 🔥 NUEVO
+      'tenantId': tenantId, // 🔥 NUEVO
       'user_id': userId,
       'name': name,
       'surname1': surname1,

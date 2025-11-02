@@ -1,5 +1,6 @@
 class Workout {
   final String id;
+  final String gymId; // 🔥 NUEVO
   final String title;
   final String description;
   final List<WorkoutExercise> exercises;
@@ -8,6 +9,7 @@ class Workout {
 
   Workout({
     required this.id,
+    required this.gymId, // 🔥 NUEVO
     required this.title,
     required this.description,
     required this.exercises,
@@ -18,6 +20,7 @@ class Workout {
   factory Workout.fromMap(String id, Map<String, dynamic> data) {
     return Workout(
       id: id,
+      gymId: data['gymId'] ?? '', // 🔥 NUEVO
       title: data['title'],
       description: data['description'],
       exercises:
@@ -31,6 +34,7 @@ class Workout {
 
   Map<String, dynamic> toMap() {
     return {
+      'gymId': gymId, // 🔥 NUEVO
       'title': title,
       'description': description,
       'exercises': exercises.map((e) => e.toMap()).toList(),

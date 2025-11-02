@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Subscription {
   final String id;
+  final String gymId; // 🔥 NUEVO
+  final String tenantId; // 🔥 NUEVO
   final String userId;
   final String membershipId;
   final DateTime startDate;
@@ -15,6 +17,8 @@ class Subscription {
 
   Subscription({
     required this.id,
+    required this.gymId, // 🔥 NUEVO
+    required this.tenantId, // 🔥 NUEVO
     required this.userId,
     required this.membershipId,
     required this.startDate,
@@ -30,6 +34,8 @@ class Subscription {
   factory Subscription.fromMap(String id, Map<String, dynamic> data) {
     return Subscription(
       id: id,
+      gymId: data['gymId'] ?? '', // 🔥 NUEVO
+      tenantId: data['tenantId'] ?? '', // 🔥 NUEVO
       userId: data['userId'],
       membershipId: data['membershipId'],
       startDate: (data['startDate'] as Timestamp).toDate(),
@@ -48,6 +54,8 @@ class Subscription {
 
   Map<String, dynamic> toMap() {
     return {
+      'gymId': gymId, // 🔥 NUEVO
+      'tenantId': tenantId, // 🔥 NUEVO
       'userId': userId,
       'membershipId': membershipId,
       'startDate': Timestamp.fromDate(startDate),

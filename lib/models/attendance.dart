@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Attendance {
   final String id;
+  final String gymId; // 🔥 NUEVO
+  final String tenantId; // 🔥 NUEVO
   final String userId;
   final DateTime date;
   final DateTime checkInTime;
@@ -10,6 +12,8 @@ class Attendance {
 
   Attendance({
     required this.id,
+    required this.gymId, // 🔥 NUEVO
+    required this.tenantId, // 🔥 NUEVO
     required this.userId,
     required this.date,
     required this.checkInTime,
@@ -18,6 +22,8 @@ class Attendance {
   factory Attendance.fromMap(String id, Map<String, dynamic> data) {
     return Attendance(
       id: id,
+      gymId: data['gymId'] ?? '', // 🔥 NUEVO
+      tenantId: data['tenantId'] ?? '', // 🔥 NUEVO
       userId: data['userId'],
       date: (data['date'] as Timestamp).toDate(),
       checkInTime: (data['checkInTime'] as Timestamp).toDate(),
@@ -30,6 +36,8 @@ class Attendance {
 
   Map<String, dynamic> toMap() {
     final map = {
+      'gymId': gymId, // 🔥 NUEVO
+      'tenantId': tenantId, // 🔥 NUEVO
       'userId': userId,
       'date': Timestamp.fromDate(date),
       'checkInTime': Timestamp.fromDate(checkInTime),

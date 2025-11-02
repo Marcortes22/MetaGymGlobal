@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class GymClass {
   final String id;
+  final String gymId; // 🔥 NUEVO
   final String name;
   final String instructorId;
   final DateTime startDateTime;
@@ -11,6 +12,7 @@ class GymClass {
 
   GymClass({
     required this.id,
+    required this.gymId, // 🔥 NUEVO
     required this.name,
     required this.instructorId,
     required this.startDateTime,
@@ -22,6 +24,7 @@ class GymClass {
   factory GymClass.fromMap(String id, Map<String, dynamic> data) {
     return GymClass(
       id: id,
+      gymId: data['gymId'] ?? '', // 🔥 NUEVO
       name: data['name'],
       instructorId: data['instructorId'],
       startDateTime: (data['startDateTime'] as Timestamp).toDate(),
@@ -33,6 +36,7 @@ class GymClass {
 
   Map<String, dynamic> toMap() {
     return {
+      'gymId': gymId, // 🔥 NUEVO
       'name': name,
       'instructorId': instructorId,
       'startDateTime': Timestamp.fromDate(startDateTime),

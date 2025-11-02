@@ -1,5 +1,6 @@
 class Progress {
   final String id;
+  final String gymId; // 🔥 NUEVO
   final String userId;
   final String exerciseId;
   final DateTime date;
@@ -11,6 +12,7 @@ class Progress {
 
   Progress({
     required this.id,
+    required this.gymId, // 🔥 NUEVO
     required this.userId,
     required this.exerciseId,
     required this.date,
@@ -24,6 +26,7 @@ class Progress {
   factory Progress.fromMap(String id, Map<String, dynamic> data) {
     return Progress(
       id: id,
+      gymId: data['gymId'] ?? '', // 🔥 NUEVO
       userId: data['userId'],
       exerciseId: data['exerciseId'],
       date: DateTime.parse(data['date']),
@@ -37,6 +40,7 @@ class Progress {
 
   Map<String, dynamic> toMap() {
     return {
+      'gymId': gymId, // 🔥 NUEVO
       'userId': userId,
       'exerciseId': exerciseId,
       'date': date.toIso8601String(),

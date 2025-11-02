@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Membership {
   final String id;
+  final String gymId; // 🔥 NUEVO
   final String name;
   final double price;
   final int durationDays;
@@ -10,6 +11,7 @@ class Membership {
 
   Membership({
     required this.id,
+    required this.gymId, // 🔥 NUEVO
     required this.name,
     required this.price,
     required this.durationDays,
@@ -20,6 +22,7 @@ class Membership {
   factory Membership.fromMap(String id, Map<String, dynamic> data) {
     return Membership(
       id: id,
+      gymId: data['gymId'] ?? '', // 🔥 NUEVO
       name: data['name'],
       price: (data['price'] as num).toDouble(),
       durationDays: data['durationDays'],
@@ -30,6 +33,7 @@ class Membership {
 
   Map<String, dynamic> toMap() {
     return {
+      'gymId': gymId, // 🔥 NUEVO
       'name': name,
       'price': price,
       'durationDays': durationDays,
