@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:gym_app/screens/secretary/create_client_screen.dart';
 import 'package:gym_app/services/user_service.dart';
 import '../../../models/user.dart';
+import '../../../utils/gym_context_helper.dart';
 
 class ClientListScreen extends StatefulWidget {
   const ClientListScreen({Key? key}) : super(key: key);
@@ -26,33 +27,40 @@ class _ClientListScreenState extends State<ClientListScreen> {
   }
 
   Future<List<User>> _getClients() async {
-    // Obtener usuarios que son clientes
-    final querySnapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .where('roles', arrayContains: {'id': 'cli', 'name': 'Cliente'})
-        .get();
+    // 🔥 Obtener contexto del gym
+    final gymContext = context.gymContext;
 
-    final users = querySnapshot.docs.map((doc) {
-      final data = doc.data();
-      return User(
-        id: doc.id,
-        userId: data['user_id'] ?? '',
-        name: data['name'] ?? '',
-        surname1: data['surname1'] ?? '',
-        surname2: data['surname2'] ?? '',
-        email: data['email'] ?? '',
-        phone: data['phone'] ?? '',
-        pin: data['pin'],
-        roles: List<Map<String, String>>.from(
-          data['roles']?.map((r) => Map<String, String>.from(r)) ?? [],
-        ),
-        height: data['height'] ?? 0,
-        weight: data['weight'] ?? 0,
-        dateOfBirth: data['dateOfBirth'] ?? '',
-        membershipId: data['membershipId'],
-        profilePictureUrl: data['profilePictureUrl'],
-      );
-    }).toList();
+    // Obtener usuarios que son clientes
+    final querySnapshot =
+        await FirebaseFirestore.instance
+            .collection('users')
+            .where('roles', arrayContains: {'id': 'cli', 'name': 'Cliente'})
+            .get();
+
+    final users =
+        querySnapshot.docs.map((doc) {
+          final data = doc.data();
+          return User(
+            gymId: gymContext.gymId,
+            tenantId: gymContext.tenantId,
+            id: doc.id,
+            userId: data['user_id'] ?? '',
+            name: data['name'] ?? '',
+            surname1: data['surname1'] ?? '',
+            surname2: data['surname2'] ?? '',
+            email: data['email'] ?? '',
+            phone: data['phone'] ?? '',
+            pin: data['pin'],
+            roles: List<Map<String, String>>.from(
+              data['roles']?.map((r) => Map<String, String>.from(r)) ?? [],
+            ),
+            height: data['height'] ?? 0,
+            weight: data['weight'] ?? 0,
+            dateOfBirth: data['dateOfBirth'] ?? '',
+            membershipId: data['membershipId'],
+            profilePictureUrl: data['profilePictureUrl'],
+          );
+        }).toList();
 
     return users;
   }
@@ -60,55 +68,56 @@ class _ClientListScreenState extends State<ClientListScreen> {
   void _showDeleteConfirmation(User user) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF2A2A2A),
-        title: const Text(
-          'Confirmar Eliminación',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: Text(
-          '¿Estás seguro que deseas eliminar a ${user.name} ${user.surname1}',
-          style: const TextStyle(color: Colors.white),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Cancelar',
-              style: TextStyle(color: Colors.grey),
+      builder:
+          (context) => AlertDialog(
+            backgroundColor: const Color(0xFF2A2A2A),
+            title: const Text(
+              'Confirmar Eliminación',
+              style: TextStyle(color: Colors.white),
             ),
-          ),
-          TextButton(
-            onPressed: () async {
-              try {
-                await _userService.deleteUser(user.id);
-                if (!mounted) return;
-                Navigator.pop(context);
-                setState(() {
-                  _loadClients(); // Recargar la lista
-                });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Cliente eliminado con éxito'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Error al eliminar cliente: $e'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-            },
-            child: const Text(
-              'Eliminar',
-              style: TextStyle(color: Colors.red),
+            content: Text(
+              '¿Estás seguro que deseas eliminar a ${user.name} ${user.surname1}',
+              style: const TextStyle(color: Colors.white),
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text(
+                  'Cancelar',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+              TextButton(
+                onPressed: () async {
+                  try {
+                    await _userService.deleteUser(user.id);
+                    if (!mounted) return;
+                    Navigator.pop(context);
+                    setState(() {
+                      _loadClients(); // Recargar la lista
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Cliente eliminado con éxito'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error al eliminar cliente: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                },
+                child: const Text(
+                  'Eliminar',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -120,139 +129,145 @@ class _ClientListScreenState extends State<ClientListScreen> {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF2A2A2A),
-        title: const Text(
-          'Editar Cliente',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                initialValue: user.name,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Nombre',
-                  labelStyle: TextStyle(color: Colors.grey[400]),
-                  enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.grey[700]!),
+      builder:
+          (context) => AlertDialog(
+            backgroundColor: const Color(0xFF2A2A2A),
+            title: const Text(
+              'Editar Cliente',
+              style: TextStyle(color: Colors.white),
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    initialValue: user.name,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: 'Nombre',
+                      labelStyle: TextStyle(color: Colors.grey[400]),
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.grey[700]!),
+                      ),
+                      focusedBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFFFF8C42)),
+                      ),
+                    ),
+                    onChanged: (value) => newName = value,
                   ),
-                  focusedBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFFF8C42)),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    initialValue: user.phone,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: 'Teléfono',
+                      labelStyle: TextStyle(color: Colors.grey[400]),
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.grey[700]!),
+                      ),
+                      focusedBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFFFF8C42)),
+                      ),
+                    ),
+                    onChanged: (value) => newPhone = value,
                   ),
-                ),
-                onChanged: (value) => newName = value,
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    initialValue: user.height.toString(),
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: 'Altura (cm)',
+                      labelStyle: TextStyle(color: Colors.grey[400]),
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.grey[700]!),
+                      ),
+                      focusedBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFFFF8C42)),
+                      ),
+                    ),
+                    keyboardType: TextInputType.number,
+                    onChanged: (value) => newHeight = value,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    initialValue: user.weight.toString(),
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: 'Peso (kg)',
+                      labelStyle: TextStyle(color: Colors.grey[400]),
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.grey[700]!),
+                      ),
+                      focusedBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFFFF8C42)),
+                      ),
+                    ),
+                    keyboardType: TextInputType.number,
+                    onChanged: (value) => newWeight = value,
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                initialValue: user.phone,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Teléfono',
-                  labelStyle: TextStyle(color: Colors.grey[400]),
-                  enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.grey[700]!),
-                  ),
-                  focusedBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFFF8C42)),
-                  ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text(
+                  'Cancelar',
+                  style: TextStyle(color: Colors.grey),
                 ),
-                onChanged: (value) => newPhone = value,
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                initialValue: user.height.toString(),
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Altura (cm)',
-                  labelStyle: TextStyle(color: Colors.grey[400]),
-                  enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.grey[700]!),
-                  ),
-                  focusedBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFFF8C42)),
-                  ),
+              TextButton(
+                onPressed: () async {
+                  try {
+                    // 🔥 Obtener contexto del gym
+                    final gymContext = context.gymContext;
+
+                    final updatedUser = User(
+                      gymId: gymContext.gymId,
+                      tenantId: gymContext.tenantId,
+                      id: user.id,
+                      userId: user.userId,
+                      name: newName,
+                      surname1: user.surname1,
+                      surname2: user.surname2,
+                      email: user.email,
+                      phone: newPhone,
+                      pin: user.pin,
+                      roles: user.roles,
+                      height: int.tryParse(newHeight) ?? user.height,
+                      weight: int.tryParse(newWeight) ?? user.weight,
+                      dateOfBirth: user.dateOfBirth,
+                      membershipId: user.membershipId,
+                      profilePictureUrl: user.profilePictureUrl,
+                    );
+                    await _userService.updateUser(updatedUser);
+                    if (!mounted) return;
+                    Navigator.pop(context);
+                    setState(() {
+                      _loadClients(); // Recargar la lista
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Cliente actualizado con éxito'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error al actualizar cliente: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                },
+                child: const Text(
+                  'Guardar',
+                  style: TextStyle(color: Color(0xFFFF8C42)),
                 ),
-                keyboardType: TextInputType.number,
-                onChanged: (value) => newHeight = value,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                initialValue: user.weight.toString(),
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Peso (kg)',
-                  labelStyle: TextStyle(color: Colors.grey[400]),
-                  enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.grey[700]!),
-                  ),
-                  focusedBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFFF8C42)),
-                  ),
-                ),
-                keyboardType: TextInputType.number,
-                onChanged: (value) => newWeight = value,
               ),
             ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Cancelar',
-              style: TextStyle(color: Colors.grey),
-            ),
-          ),
-          TextButton(
-            onPressed: () async {
-              try {
-                final updatedUser = User(
-                  id: user.id,
-                  userId: user.userId,
-                  name: newName,
-                  surname1: user.surname1,
-                  surname2: user.surname2,
-                  email: user.email,
-                  phone: newPhone,
-                  pin: user.pin,
-                  roles: user.roles,
-                  height: int.tryParse(newHeight) ?? user.height,
-                  weight: int.tryParse(newWeight) ?? user.weight,
-                  dateOfBirth: user.dateOfBirth,
-                  membershipId: user.membershipId,
-                  profilePictureUrl: user.profilePictureUrl,
-                );
-                await _userService.updateUser(updatedUser);
-                if (!mounted) return;
-                Navigator.pop(context);
-                setState(() {
-                  _loadClients(); // Recargar la lista
-                });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Cliente actualizado con éxito'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Error al actualizar cliente: $e'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-            },
-            child: const Text(
-              'Guardar',
-              style: TextStyle(color: Color(0xFFFF8C42)),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -343,73 +358,65 @@ class _ClientListScreenState extends State<ClientListScreen> {
                       const SizedBox(height: 4),
                       Text(
                         client.email,
-                        style: TextStyle(
-                          color: Colors.grey[400],
-                          fontSize: 14,
-                        ),
+                        style: TextStyle(color: Colors.grey[400], fontSize: 14),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Tel: ${client.phone}',
-                        style: TextStyle(
-                          color: Colors.grey[400],
-                          fontSize: 14,
-                        ),
+                        style: TextStyle(color: Colors.grey[400], fontSize: 14),
                       ),
                     ],
                   ),
                   trailing: PopupMenuButton(
-                    icon: const Icon(
-                      Icons.more_vert,
-                      color: Color(0xFFFF8C42),
-                    ),
+                    icon: const Icon(Icons.more_vert, color: Color(0xFFFF8C42)),
                     color: const Color(0xFF2A2A2A),
-                    itemBuilder: (context) => [
-                      PopupMenuItem(
-                        child: ListTile(
-                          leading: const Icon(
-                            Icons.edit,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                          title: const Text(
-                            'Editar',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
+                    itemBuilder:
+                        (context) => [
+                          PopupMenuItem(
+                            child: ListTile(
+                              leading: const Icon(
+                                Icons.edit,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                              title: const Text(
+                                'Editar',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              contentPadding: EdgeInsets.zero,
+                              horizontalTitleGap: 8,
+                              onTap: () {
+                                Navigator.pop(context);
+                                _showEditDialog(client);
+                              },
                             ),
                           ),
-                          contentPadding: EdgeInsets.zero,
-                          horizontalTitleGap: 8,
-                          onTap: () {
-                            Navigator.pop(context);
-                            _showEditDialog(client);
-                          },
-                        ),
-                      ),
-                      PopupMenuItem(
-                        child: ListTile(
-                          leading: const Icon(
-                            Icons.delete,
-                            color: Colors.red,
-                            size: 20,
-                          ),
-                          title: const Text(
-                            'Eliminar',
-                            style: TextStyle(
-                              color: Colors.red,
-                              fontSize: 14,
+                          PopupMenuItem(
+                            child: ListTile(
+                              leading: const Icon(
+                                Icons.delete,
+                                color: Colors.red,
+                                size: 20,
+                              ),
+                              title: const Text(
+                                'Eliminar',
+                                style: TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              contentPadding: EdgeInsets.zero,
+                              horizontalTitleGap: 8,
+                              onTap: () {
+                                Navigator.pop(context);
+                                _showDeleteConfirmation(client);
+                              },
                             ),
                           ),
-                          contentPadding: EdgeInsets.zero,
-                          horizontalTitleGap: 8,
-                          onTap: () {
-                            Navigator.pop(context);
-                            _showDeleteConfirmation(client);
-                          },
-                        ),
-                      ),
-                    ],
+                        ],
                   ),
                 ),
               );

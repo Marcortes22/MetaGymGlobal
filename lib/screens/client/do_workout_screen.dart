@@ -4,8 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../../models/workout.dart';
 import '../../models/exercise.dart';
-import '../../models/assigned_workout.dart';
 import '../../services/assigned_workout_service.dart';
+import '../../utils/gym_context_helper.dart';
 
 class DoWorkoutScreen extends StatefulWidget {
   final Workout workout;
@@ -74,7 +74,13 @@ class _DoWorkoutScreenState extends State<DoWorkoutScreen> {
     if (user == null) return;
 
     try {
-      await _assignedWorkoutService.completeWorkout(user.uid, widget.workout.id);
+      // 🔥 Obtener contexto del gym
+      final gymContext = context.gymContext;
+      await _assignedWorkoutService.completeWorkout(
+        user.uid,
+        widget.workout.id,
+        gymContext.gymId,
+      );
       if (mounted) {
         setState(() {
           _finished = true;
@@ -168,9 +174,7 @@ class _DoWorkoutScreenState extends State<DoWorkoutScreen> {
       onPressed: () => _startRestTimer(seconds),
       style: OutlinedButton.styleFrom(
         side: const BorderSide(color: Color(0xFFFF8C42)),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
       child: Text(
         '${seconds}s',
@@ -187,79 +191,85 @@ class _DoWorkoutScreenState extends State<DoWorkoutScreen> {
 
     return showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF2A2A2A),
-        title: const Text(
-          '¿Abandonar Rutina?',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: const Text(
-          'Si sales ahora, perderás el progreso de esta rutina.',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text(
-              'Cancelar',
-              style: TextStyle(color: Colors.grey),
+      builder:
+          (context) => AlertDialog(
+            backgroundColor: const Color(0xFF2A2A2A),
+            title: const Text(
+              '¿Abandonar Rutina?',
+              style: TextStyle(color: Colors.white),
             ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text(
-              'Salir',
-              style: TextStyle(color: Colors.red),
+            content: const Text(
+              'Si sales ahora, perderás el progreso de esta rutina.',
+              style: TextStyle(color: Colors.white70),
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text(
+                  'Cancelar',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Salir', style: TextStyle(color: Colors.red)),
+              ),
+            ],
           ),
-        ],
-      ),
     ).then((value) => value ?? false);
   }
+
   @override
   Widget build(BuildContext context) {
     if (_finished) {
       return WillPopScope(
         onWillPop: _onWillPop,
         child: Scaffold(
-        backgroundColor: const Color(0xFF1A1A1A),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.emoji_events, color: Color(0xFFFF8C42), size: 80),
-              const SizedBox(height: 24),
-              const Text(
-                '¡Felicidades!\nTerminaste la rutina',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
+          backgroundColor: const Color(0xFF1A1A1A),
+          body: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.emoji_events,
+                  color: Color(0xFFFF8C42),
+                  size: 80,
                 ),
-              ),
-              const SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFF8C42),
-                  minimumSize: const Size(180, 48),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                const SizedBox(height: 24),
+                const Text(
+                  '¡Felicidades!\nTerminaste la rutina',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                child: const Text('Volver', style: TextStyle(fontSize: 18)),
-              ),
-            ],
+                const SizedBox(height: 32),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF8C42),
+                    minimumSize: const Size(180, 48),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('Volver', style: TextStyle(fontSize: 18)),
+                ),
+              ],
+            ),
           ),
         ),
-      ));
+      );
     }
 
     final exercise = widget.exercises[_currentIndex];
-    final workoutExercise = widget.workout.exercises.firstWhere((e) => e.exerciseId == exercise.id);
+    final workoutExercise = widget.workout.exercises.firstWhere(
+      (e) => e.exerciseId == exercise.id,
+    );
 
     return WillPopScope(
       onWillPop: _onWillPop,
@@ -281,27 +291,32 @@ class _DoWorkoutScreenState extends State<DoWorkoutScreen> {
             children: [
               AspectRatio(
                 aspectRatio: 16 / 9,
-                child: exercise.videoUrl.isNotEmpty && _youtubeController != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: YoutubePlayer(
-                          controller: _youtubeController!,
-                          showVideoProgressIndicator: true,
-                          progressColors: const ProgressBarColors(
-                            playedColor: Color(0xFFFF8C42),
-                            handleColor: Color(0xFFFF8C42),
+                child:
+                    exercise.videoUrl.isNotEmpty && _youtubeController != null
+                        ? ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: YoutubePlayer(
+                            controller: _youtubeController!,
+                            showVideoProgressIndicator: true,
+                            progressColors: const ProgressBarColors(
+                              playedColor: Color(0xFFFF8C42),
+                              handleColor: Color(0xFFFF8C42),
+                            ),
+                          ),
+                        )
+                        : Container(
+                          decoration: BoxDecoration(
+                            color: Colors.grey[800],
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Center(
+                            child: Icon(
+                              Icons.fitness_center,
+                              color: Colors.white,
+                              size: 48,
+                            ),
                           ),
                         ),
-                      )
-                    : Container(
-                        decoration: BoxDecoration(
-                          color: Colors.grey[800],
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: const Center(
-                          child: Icon(Icons.fitness_center, color: Colors.white, size: 48),
-                        ),
-                      ),
               ),
               const SizedBox(height: 24),
               Text(
@@ -317,10 +332,7 @@ class _DoWorkoutScreenState extends State<DoWorkoutScreen> {
               Text(
                 exercise.description,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.grey,
-                  fontSize: 16,
-                ),
+                style: const TextStyle(color: Colors.grey, fontSize: 16),
               ),
               const SizedBox(height: 24),
               Container(
@@ -336,7 +348,11 @@ class _DoWorkoutScreenState extends State<DoWorkoutScreen> {
                       children: [
                         Column(
                           children: [
-                            const Icon(Icons.refresh, color: Color(0xFFFF8C42), size: 24),
+                            const Icon(
+                              Icons.refresh,
+                              color: Color(0xFFFF8C42),
+                              size: 24,
+                            ),
                             const SizedBox(height: 8),
                             Text(
                               '${workoutExercise.sets} Series',
@@ -350,7 +366,11 @@ class _DoWorkoutScreenState extends State<DoWorkoutScreen> {
                         ),
                         Column(
                           children: [
-                            const Icon(Icons.fitness_center, color: Color(0xFFFF8C42), size: 24),
+                            const Icon(
+                              Icons.fitness_center,
+                              color: Color(0xFFFF8C42),
+                              size: 24,
+                            ),
                             const SizedBox(height: 8),
                             Text(
                               '${workoutExercise.repetitions} Reps',
@@ -409,8 +429,10 @@ class _DoWorkoutScreenState extends State<DoWorkoutScreen> {
                     ElevatedButton.icon(
                       onPressed: _previousExercise,
                       icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      label: const Text('Anterior',
-                          style: TextStyle(color: Colors.white)),
+                      label: const Text(
+                        'Anterior',
+                        style: TextStyle(color: Colors.white),
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.grey[800],
                         shape: RoundedRectangleBorder(
@@ -422,8 +444,10 @@ class _DoWorkoutScreenState extends State<DoWorkoutScreen> {
                     const SizedBox.shrink(),
                   ElevatedButton.icon(
                     onPressed: _nextExercise,
-                    icon: Icon(_isLastExercise ? Icons.check : Icons.arrow_forward,
-                        color: Colors.white),
+                    icon: Icon(
+                      _isLastExercise ? Icons.check : Icons.arrow_forward,
+                      color: Colors.white,
+                    ),
                     label: Text(
                       _isLastExercise ? 'Finalizar' : 'Siguiente',
                       style: const TextStyle(color: Colors.white),

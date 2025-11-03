@@ -3,12 +3,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:gym_app/services/subscription_service.dart';
 import 'package:gym_app/services/membership_service.dart';
 import 'package:gym_app/models/membership.dart';
+import '../../../utils/gym_context_helper.dart';
 
 class SubscriptionRenewalScreen extends StatefulWidget {
   const SubscriptionRenewalScreen({Key? key}) : super(key: key);
 
   @override
-  State<SubscriptionRenewalScreen> createState() => _SubscriptionRenewalScreenState();
+  State<SubscriptionRenewalScreen> createState() =>
+      _SubscriptionRenewalScreenState();
 }
 
 class _SubscriptionRenewalScreenState extends State<SubscriptionRenewalScreen> {
@@ -27,15 +29,19 @@ class _SubscriptionRenewalScreenState extends State<SubscriptionRenewalScreen> {
   Future<void> _loadData() async {
     try {
       setState(() => _isLoading = true);
-      
+      final gymContext = context.gymContext;
+
       // Cargar membresías disponibles
-      _memberships = await _membershipService.getAllMemberships();
-      
+      _memberships = await _membershipService.getAllMemberships(
+        gymContext.gymId,
+      );
+
       // Obtener todos los clientes
-      final clientsQuery = await FirebaseFirestore.instance
-          .collection('users')
-          .where('roles', arrayContains: {'id': 'cli', 'name': 'Cliente'})
-          .get();
+      final clientsQuery =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .where('roles', arrayContains: {'id': 'cli', 'name': 'Cliente'})
+              .get();
 
       final clientsData = await Future.wait(
         clientsQuery.docs.map((doc) async {
@@ -43,15 +49,17 @@ class _SubscriptionRenewalScreenState extends State<SubscriptionRenewalScreen> {
           final userId = doc.id;
 
           // Obtener días restantes de membresía
-          final daysRemaining = await _subscriptionService.getDaysRemainingInSubscription(userId);
-          
+          final daysRemaining = await _subscriptionService
+              .getDaysRemainingInSubscription(userId, gymContext.gymId);
+
           // Obtener membresía actual
           String membershipName = 'Sin membresía';
           if (userData['membershipId'] != null) {
-            final membershipDoc = await FirebaseFirestore.instance
-                .collection('memberships')
-                .doc(userData['membershipId'])
-                .get();
+            final membershipDoc =
+                await FirebaseFirestore.instance
+                    .collection('memberships')
+                    .doc(userData['membershipId'])
+                    .get();
             if (membershipDoc.exists) {
               membershipName = membershipDoc.data()?['name'] ?? 'Sin membresía';
             }
@@ -59,7 +67,8 @@ class _SubscriptionRenewalScreenState extends State<SubscriptionRenewalScreen> {
 
           return {
             'userId': userId,
-            'name': '${userData['name']} ${userData['surname1']} ${userData['surname2']}',
+            'name':
+                '${userData['name']} ${userData['surname1']} ${userData['surname2']}',
             'membershipName': membershipName,
             'daysRemaining': daysRemaining,
             'currentMembershipId': userData['membershipId'],
@@ -114,15 +123,16 @@ class _SubscriptionRenewalScreenState extends State<SubscriptionRenewalScreen> {
                     borderSide: BorderSide(color: Color(0xFFFF8C42)),
                   ),
                 ),
-                items: _memberships.map((membership) {
-                  return DropdownMenuItem<String>(
-                    value: membership.id,
-                    child: Text(
-                      '${membership.name} - \$${membership.price} (${membership.durationDays} días)',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  );
-                }).toList(),
+                items:
+                    _memberships.map((membership) {
+                      return DropdownMenuItem<String>(
+                        value: membership.id,
+                        child: Text(
+                          '${membership.name} - \$${membership.price} (${membership.durationDays} días)',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      );
+                    }).toList(),
                 onChanged: (value) {
                   selectedMembershipId = value;
                 },
@@ -155,23 +165,19 @@ class _SubscriptionRenewalScreenState extends State<SubscriptionRenewalScreen> {
       if (selectedId != null) {
         try {
           final selectedMembership = _memberships.firstWhere(
-            (m) => m.id == selectedId
+            (m) => m.id == selectedId,
           );
-          
+
           final now = DateTime.now();
-          
+
           // Actualizar membresía del usuario
           await FirebaseFirestore.instance
               .collection('users')
               .doc(client['userId'])
-              .update({
-            'membershipId': selectedId,
-          });
+              .update({'membershipId': selectedId});
 
           // Crear nueva suscripción
-          await FirebaseFirestore.instance
-              .collection('subscriptions')
-              .add({
+          await FirebaseFirestore.instance.collection('subscriptions').add({
             'userId': client['userId'],
             'membershipId': selectedId,
             'startDate': now,
@@ -221,70 +227,74 @@ class _SubscriptionRenewalScreenState extends State<SubscriptionRenewalScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF8C42)),
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _clientsData.length,
-              itemBuilder: (context, index) {                final client = _clientsData[index];
-                final daysRemaining = client['daysRemaining'] as int;
-                final bool isExpired = daysRemaining < 1; // Cambiar a < 1 para considerar que 1 día aún es válido
+      body:
+          _isLoading
+              ? const Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF8C42)),
+                ),
+              )
+              : ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: _clientsData.length,
+                itemBuilder: (context, index) {
+                  final client = _clientsData[index];
+                  final daysRemaining = client['daysRemaining'] as int;
+                  final bool isExpired =
+                      daysRemaining <
+                      1; // Cambiar a < 1 para considerar que 1 día aún es válido
 
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  color: Colors.white.withOpacity(0.05),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.all(16),
-                    title: Text(
-                      client['name'],
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 8),
-                        Text(
-                          'Membresía actual: ${client['membershipName']}',
-                          style: TextStyle(color: Colors.grey[400]),
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    color: Colors.white.withOpacity(0.05),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.all(16),
+                      title: Text(
+                        client['name'],
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          isExpired
-                              ? 'MEMBRESÍA VENCIDA'
-                              : 'Días restantes: $daysRemaining',
-                          style: TextStyle(
-                            color: isExpired ? Colors.red : Colors.grey[400],
-                            fontWeight: isExpired ? FontWeight.bold : null,
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 8),
+                          Text(
+                            'Membresía actual: ${client['membershipName']}',
+                            style: TextStyle(color: Colors.grey[400]),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            isExpired
+                                ? 'MEMBRESÍA VENCIDA'
+                                : 'Días restantes: $daysRemaining',
+                            style: TextStyle(
+                              color: isExpired ? Colors.red : Colors.grey[400],
+                              fontWeight: isExpired ? FontWeight.bold : null,
+                            ),
+                          ),
+                        ],
+                      ),
+                      trailing: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFF8C42),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
                           ),
                         ),
-                      ],
-                    ),
-                    trailing: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFF8C42),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
+                        onPressed: () => _showRenewalDialog(client),
+                        child: const Text(
+                          'Renovar',
+                          style: TextStyle(color: Colors.white),
                         ),
                       ),
-                      onPressed: () => _showRenewalDialog(client),
-                      child: const Text(
-                        'Renovar',
-                        style: TextStyle(color: Colors.white),
-                      ),
                     ),
-                  ),
-                );
-              },
-            ),
+                  );
+                },
+              ),
     );
   }
 }

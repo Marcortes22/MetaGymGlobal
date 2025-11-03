@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:gym_app/routes/AppRoutes.dart';
 import 'package:gym_app/services/auth_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
+import 'package:gym_app/providers/gym_context_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -18,7 +21,41 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _error;
   bool _showRenewalMessage = false;
 
+  // Datos del gimnasio (recibidos como argumentos)
+  String? _gymId;
+  String? _tenantId;
+  String? _gymName;
+  String? _code;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Obtener argumentos pasados desde gym_code_screen
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    if (args != null) {
+      _gymId = args['gymId'];
+      _tenantId = args['tenantId'];
+      _gymName = args['gymName'];
+      _code = args['code'];
+    }
+  }
+
   Future<void> _signIn() async {
+    // Validar que tengamos el contexto del gimnasio
+    if (_gymId == null || _tenantId == null || _code == null) {
+      setState(() {
+        _error = 'Debes seleccionar un gimnasio primero';
+      });
+      // Redirigir a la pantalla de código
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, AppRoutes.gymCode);
+        }
+      });
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _error = null;
@@ -26,7 +63,9 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final result = await _authService.signInWithEmailAndPassword(
+      // 🔥 USAR EL MÉTODO CORRECTO CON VALIDACIÓN DE GYM
+      final result = await _authService.loginWithGymCode(
+        _code!,
         _emailController.text.trim(),
         _passwordController.text.trim(),
       );
@@ -34,6 +73,18 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       if (result['success']) {
+        // 🔥 GUARDAR CONTEXTO DEL GIMNASIO EN PROVIDER Y SHARED PREFERENCES
+        final gymProvider = Provider.of<GymContextProvider>(
+          context,
+          listen: false,
+        );
+        await gymProvider.setGymContext(
+          gymId: result['gymId'],
+          tenantId: result['tenantId'],
+          gymName: result['gymName'],
+          code: _code!,
+        );
+
         if (result['warning'] != null) {
           // Mostrar el warning en un SnackBar
           ScaffoldMessenger.of(context).showSnackBar(
@@ -53,7 +104,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       setState(() {
-        _error = 'Error al iniciar sesión';
+        _error = 'Error al iniciar sesión: ${e.toString()}';
       });
     } finally {
       setState(() {
@@ -84,6 +135,60 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 20),
                 Image.asset('assets/gym_logo.png', height: 120),
                 const SizedBox(height: 30),
+
+                // Mostrar información del gimnasio si existe
+                if (_gymName != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF8C42).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFFFF8C42).withOpacity(0.3),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.fitness_center,
+                          color: Color(0xFFFF8C42),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _gymName!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF8C42),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            _code ?? '',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+
                 const Text(
                   'Iniciar Sesión',
                   style: TextStyle(
@@ -186,22 +291,23 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
+                    child:
+                        _isLoading
+                            ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                            : const Text(
+                              'Iniciar sesión',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          )
-                        : const Text(
-                            'Iniciar sesión',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
                   ),
                 ),
                 if (_error != null)

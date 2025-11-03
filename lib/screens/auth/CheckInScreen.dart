@@ -4,6 +4,7 @@ import 'package:gym_app/widgets/DesactivateTotenModeButton.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:gym_app/services/attendance_service.dart';
 import 'package:gym_app/services/user_service.dart';
+import '../../utils/gym_context_helper.dart';
 
 class CheckInScreen extends StatefulWidget {
   const CheckInScreen({super.key});
@@ -90,11 +91,17 @@ class _CheckInScreenState extends State<CheckInScreen>
       return;
     }
     try {
+      final gymContext = context.gymContext;
       // Check in or out based on the current mode
       final response =
           _isCheckOutMode
-              ? await _attendanceService.checkOutWithPin(_pin)
-              : await _attendanceService.checkInWithPin(_pin);
+              ? await _attendanceService.checkOutWithPin(_pin, _showMessage)
+              : await _attendanceService.checkInWithPin(
+                _pin,
+                gymContext.gymId,
+                gymContext.tenantId,
+                _showMessage,
+              );
 
       if (!response['success']) {
         _showMessage(response['message']);
@@ -161,12 +168,12 @@ class _CheckInScreenState extends State<CheckInScreen>
       // Clear the PIN after success
       _clearPin();
     } catch (e) {
-      // Check if the error is due to already checked in today
-      if (e.toString().contains('Ya registraste tu asistencia hoy')) {
-        _showMessage("Ya registraste tu asistencia hoy.");
-      } else {
-        _showMessage("Error al verificar PIN: ${e.toString()}");
-      }
+      // // Check if the error is due to already checked in today
+      // if (e.toString().contains('Ya registraste tu asistencia hoy')) {
+      //   _showMessage("Ya registraste tu asistencia hoy.");
+      // } else {
+      //   _showMessage("Error al verificar PIN: ${e.toString()}");
+      // }
       _clearPin();
     }
   } // Function to get current user's ID using the service

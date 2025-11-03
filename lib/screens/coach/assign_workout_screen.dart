@@ -4,6 +4,7 @@ import 'package:gym_app/models/assigned_workout.dart';
 import 'package:gym_app/models/user.dart';
 import 'package:gym_app/models/workout.dart';
 import 'package:gym_app/services/assigned_workout_service.dart';
+import '../../../utils/gym_context_helper.dart';
 
 class AssignWorkoutScreen extends StatefulWidget {
   const AssignWorkoutScreen({super.key});
@@ -38,7 +39,9 @@ class _AssignWorkoutScreenState extends State<AssignWorkoutScreen> {
   }
 
   Future<List<AssignedWorkout>> _getAssignedWorkouts(String userId) async {
-    return await _assignedWorkoutService.getByUser(userId);
+    // 🔥 Obtener contexto del gym
+    final gymContext = context.gymContext;
+    return await _assignedWorkoutService.getByUser(userId, gymContext.gymId);
   }
 
   Future<void> _assignWorkout(
@@ -47,10 +50,14 @@ class _AssignWorkoutScreenState extends State<AssignWorkoutScreen> {
     Workout workout,
   ) async {
     try {
+      // 🔥 Obtener contexto del gym
+      final gymContext = context.gymContext;
+
       // Verificar si la rutina ya está asignada
       final isAssigned = await _assignedWorkoutService.isWorkoutAssigned(
         user.id,
         workout.id,
+        gymContext.gymId,
       );
       if (isAssigned) {
         if (!mounted) return;
@@ -63,6 +70,7 @@ class _AssignWorkoutScreenState extends State<AssignWorkoutScreen> {
         return;
       }
       final assigned = AssignedWorkout(
+        gymId: gymContext.gymId,
         id: '',
         userId: user.id,
         workoutId: workout.id,
@@ -70,9 +78,7 @@ class _AssignWorkoutScreenState extends State<AssignWorkoutScreen> {
         status: 'assigned',
       );
 
-      final assignedWorkout = await _assignedWorkoutService.assignWorkout(
-        assigned,
-      );
+      await _assignedWorkoutService.assignWorkout(assigned);
 
       if (!mounted) return;
       setState(() {}); // Actualizar la UI
@@ -208,10 +214,13 @@ class _AssignWorkoutScreenState extends State<AssignWorkoutScreen> {
                                   ),
                                   const SizedBox(height: 8),
                                   ...assignedWorkouts.map((assigned) {
+                                    // 🔥 Obtener contexto del gym
+                                    final gymContext = context.gymContext;
                                     final workout = workouts.firstWhere(
                                       (w) => w.id == assigned.workoutId,
                                       orElse:
                                           () => Workout(
+                                            gymId: gymContext.gymId,
                                             id: '',
                                             title: 'Rutina no encontrada',
                                             description: '',

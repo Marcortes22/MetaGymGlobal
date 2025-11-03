@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../services/user_service.dart';
+import '../../../utils/gym_context_helper.dart';
 
 class CreateUserScreen extends StatefulWidget {
   const CreateUserScreen({super.key});
@@ -59,6 +60,7 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
       setState(() => _isLoading = true);
 
       try {
+        final gymContext = context.gymContext;
         // Convertir los roles seleccionados al formato requerido
         List<Map<String, String>> roles =
             _selectedRoles.map((role) {
@@ -73,6 +75,8 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
           password: _password,
           name: _name.trim(),
           roles: roles,
+          gymId: gymContext.gymId,
+          tenantId: gymContext.tenantId,
           surname1: _surname1.trim(),
           surname2: _surname2.trim(),
           phone: _phone.trim(),

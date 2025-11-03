@@ -4,6 +4,7 @@ import '../../../models/workout.dart';
 import '../../../models/exercise.dart';
 import '../../../services/workout_service.dart';
 import '../../../services/exercise_service.dart';
+import '../../../utils/gym_context_helper.dart';
 
 class CreateWorkoutScreen extends StatefulWidget {
   const CreateWorkoutScreen({super.key});
@@ -33,7 +34,9 @@ class _CreateWorkoutScreenState extends State<CreateWorkoutScreen> {
   @override
   void initState() {
     super.initState();
-    _loadExercises();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadExercises();
+    });
   }
 
   @override
@@ -45,7 +48,9 @@ class _CreateWorkoutScreenState extends State<CreateWorkoutScreen> {
 
   Future<void> _loadExercises() async {
     try {
-      final exercises = await _exerciseService.getAll();
+      // 🔥 Obtener contexto del gym
+      final gymContext = context.gymContext;
+      final exercises = await _exerciseService.getAll(gymContext.gymId);
       setState(() {
         _availableExercises = exercises;
       });
@@ -274,7 +279,10 @@ class _CreateWorkoutScreenState extends State<CreateWorkoutScreen> {
               )
               .toList();
 
+      // 🔥 Obtener contexto del gym
+      final gymContext = context.gymContext;
       await _workoutService.createWorkout(
+        gymId: gymContext.gymId,
         title: _titleController.text,
         description: _descriptionController.text,
         exercises: workoutExercises,

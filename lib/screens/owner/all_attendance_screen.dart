@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:gym_app/services/profile_service.dart';
 import 'package:gym_app/screens/shared/user_profile_screen.dart';
+import '../../../utils/gym_context_helper.dart';
 
 class AllAttendanceScreen extends StatefulWidget {
   const AllAttendanceScreen({Key? key}) : super(key: key);
@@ -24,7 +25,9 @@ class _AllAttendanceScreenState extends State<AllAttendanceScreen> {
     now = DateTime.now();
     _startDate = DateTime(now.year, now.month, now.day); // 00:00
     _endDate = DateTime(now.year, now.month, now.day, 23, 59, 59);
-    _loadAttendanceData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadAttendanceData();
+    });
   }
 
   Future<void> _loadAttendanceData() async {
@@ -33,9 +36,11 @@ class _AllAttendanceScreenState extends State<AllAttendanceScreen> {
     });
 
     try {
+      final gymContext = context.gymContext;
       final records = await _profileService.getAllUsersAttendance(
         startDate: _startDate,
         endDate: _endDate,
+        gymId: gymContext.gymId,
       );
 
       setState(() {

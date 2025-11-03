@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../models/user.dart';
 import '../../../services/role_service.dart';
 import '../../../services/user_service.dart';
+import '../../../utils/gym_context_helper.dart';
 import 'create_user_screen.dart';
 
 class UsersScreen extends StatefulWidget {
@@ -53,6 +54,7 @@ class _UsersScreenState extends State<UsersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final gymContext = context.gymContext;
     return Scaffold(
       backgroundColor: const Color(0xFF1A1A1A),
       appBar: AppBar(
@@ -72,7 +74,7 @@ class _UsersScreenState extends State<UsersScreen> {
         ),
       ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _roleService.getUsersByRole(),
+        future: _roleService.getUsersByRole(gymContext.gymId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
@@ -368,7 +370,10 @@ class _UsersScreenState extends State<UsersScreen> {
               TextButton(
                 onPressed: () async {
                   try {
+                    final gymContext = context.gymContext;
                     final updatedUser = User(
+                      gymId: gymContext.gymId,
+                      tenantId: gymContext.tenantId,
                       id: user.id,
                       userId: user.userId,
                       name: newName,

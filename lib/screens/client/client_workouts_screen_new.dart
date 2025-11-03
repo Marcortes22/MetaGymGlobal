@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/workout.dart';
-import '../../models/assigned_workout.dart';
 import '../../services/assigned_workout_service.dart';
 import '../../services/workout_service.dart';
+import '../../utils/gym_context_helper.dart';
 import 'workout_details_screen.dart';
 
 class ClientWorkoutsScreen extends StatefulWidget {
@@ -22,13 +22,15 @@ class _ClientWorkoutsScreenState extends State<ClientWorkoutsScreen> {
     final lowerTitle = title.toLowerCase();
     if (lowerTitle.contains('full') || lowerTitle.contains('completo')) {
       return const AssetImage('assets/memberships/premium.jpg');
-    } else if (lowerTitle.contains('upper') || lowerTitle.contains('superior')) {
+    } else if (lowerTitle.contains('upper') ||
+        lowerTitle.contains('superior')) {
       return const AssetImage('assets/memberships/medium.jpg');
     } else if (lowerTitle.contains('core') || lowerTitle.contains('abs')) {
       return const AssetImage('assets/memberships/basic.jpg');
     } else if (lowerTitle.contains('cardio')) {
       return const AssetImage('assets/memberships/premium.jpg');
-    } else if (lowerTitle.contains('strength') || lowerTitle.contains('fuerza')) {
+    } else if (lowerTitle.contains('strength') ||
+        lowerTitle.contains('fuerza')) {
       return const AssetImage('assets/memberships/medium.jpg');
     }
     return const AssetImage('assets/memberships/basic.jpg');
@@ -50,16 +52,21 @@ class _ClientWorkoutsScreenState extends State<ClientWorkoutsScreen> {
   }
 
   Future<List<Workout>> _getWorkouts(String userId) async {
-    final assignedWorkouts = await _assignedWorkoutService.getByUser(userId);
+    // 🔥 Obtener contexto del gym
+    final gymContext = context.gymContext;
+    final assignedWorkouts = await _assignedWorkoutService.getByUser(
+      userId,
+      gymContext.gymId,
+    );
     final workouts = <Workout>[];
-    
+
     for (var assigned in assignedWorkouts) {
       final workout = await _workoutService.getById(assigned.workoutId);
       if (workout != null) {
         workouts.add(workout);
       }
     }
-    
+
     return workouts;
   }
 
@@ -126,9 +133,9 @@ class _ClientWorkoutsScreenState extends State<ClientWorkoutsScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => WorkoutDetailsScreen(
-                          workout: workouts.first,
-                        ),
+                        builder:
+                            (context) =>
+                                WorkoutDetailsScreen(workout: workouts.first),
                       ),
                     );
                   },
@@ -243,9 +250,9 @@ class _ClientWorkoutsScreenState extends State<ClientWorkoutsScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => WorkoutDetailsScreen(
-                            workout: workout,
-                          ),
+                          builder:
+                              (context) =>
+                                  WorkoutDetailsScreen(workout: workout),
                         ),
                       );
                     },

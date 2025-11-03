@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:gym_app/services/profile_service.dart';
 import 'package:gym_app/services/attendance_service.dart';
-import 'package:gym_app/routes/AppRoutes.dart';
+import '../../utils/gym_context_helper.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final String? userId;
@@ -30,7 +29,9 @@ class _UserProfileScreenState extends State<UserProfileScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _loadUserProfile();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadUserProfile();
+    });
   }
 
   Future<void> _loadUserProfile() async {
@@ -39,17 +40,20 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     });
 
     try {
+      final gymContext = context.gymContext;
       final userId = widget.userId ?? _profileService.getCurrentUserId();
       if (userId != null) {
         final profileData = await _profileService.getUserProfile(
           userId: userId,
+          gymId: gymContext.gymId,
         );
         final attendanceHistory = await _profileService
-            .getUserAttendanceHistory(userId);
+            .getUserAttendanceHistory(userId, gymContext.gymId);
 
         // Check if user has an ongoing session
         final sessionStatus = await _attendanceService.hasOngoingSession(
           userId,
+          gymContext.gymId, // 🔥 AGREGADO
         );
         final hasOngoing = sessionStatus['hasOngoing'] == true;
 
@@ -107,13 +111,6 @@ class _UserProfileScreenState extends State<UserProfileScreen>
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
-          // QR Scanner button for quick check-in
-          if (!widget.isAdminView)
-            IconButton(
-              icon: const Icon(Icons.qr_code_scanner, color: Color(0xFFFF8C42)),
-              onPressed: () => _navigateToQRScanner(),
-              tooltip: 'Escanear QR',
-            ),
           if (!widget.isAdminView)
             IconButton(
               icon: const Icon(Icons.logout, color: Color(0xFFFF8C42)),
@@ -470,43 +467,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                 if (membershipInfo['hasValidSubscription'] &&
                     !widget.isAdminView) ...[
                   const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            _hasOngoingSession
-                                ? Colors.redAccent
-                                : Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      icon: Icon(
-                        _hasOngoingSession
-                            ? Icons.exit_to_app
-                            : Icons.qr_code_scanner,
-                        color:
-                            _hasOngoingSession
-                                ? Colors.white
-                                : const Color(0xFFFF8C42),
-                      ),
-                      label: Text(
-                        _hasOngoingSession
-                            ? 'Registrar salida ahora'
-                            : 'Registrar entrada ahora',
-                        style: TextStyle(
-                          color:
-                              _hasOngoingSession
-                                  ? Colors.white
-                                  : const Color(0xFF1A1A1A),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      onPressed: _navigateToQRScanner,
-                    ),
-                  ),
+                  // Botón de check-in eliminado (QR no funciona)
                 ],
               ],
             ),
@@ -595,24 +556,24 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                     style: const TextStyle(color: Colors.white70, fontSize: 14),
                   ),
                   const SizedBox(height: 16),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    icon: const Icon(Icons.exit_to_app, color: Colors.white),
-                    label: const Text(
-                      'Registrar salida ahora',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    onPressed: _processDirectCheckOut,
-                  ),
+                  // ElevatedButton.icon(
+                  //   style: ElevatedButton.styleFrom(
+                  //     backgroundColor: Colors.redAccent,
+                  //     padding: const EdgeInsets.symmetric(vertical: 12),
+                  //     shape: RoundedRectangleBorder(
+                  //       borderRadius: BorderRadius.circular(10),
+                  //     ),
+                  //   ),
+                  //   icon: const Icon(Icons.exit_to_app, color: Colors.white),
+                  //   label: const Text(
+                  //     'Registrar salida ahora',
+                  //     style: TextStyle(
+                  //       color: Colors.white,
+                  //       fontWeight: FontWeight.bold,
+                  //     ),
+                  //   ),
+                  //   onPressed: _processDirectCheckOut,
+                  // ),
                 ],
               ),
             ),
@@ -648,11 +609,12 @@ class _UserProfileScreenState extends State<UserProfileScreen>
               IconButton(
                 icon: const Icon(Icons.refresh, color: Color(0xFFFF8C42)),
                 onPressed: () async {
+                  final gymContext = context.gymContext;
                   final userId =
                       widget.userId ?? _profileService.getCurrentUserId();
                   if (userId != null) {
                     final history = await _profileService
-                        .getUserAttendanceHistory(userId);
+                        .getUserAttendanceHistory(userId, gymContext.gymId);
                     setState(() {
                       _attendanceHistory = history;
                     });
@@ -949,16 +911,6 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     );
   }
 
-  // Navigate to QR scanner screen for quick check-in
-  Future<void> _navigateToQRScanner() async {
-    final result = await Navigator.pushNamed(context, AppRoutes.qrScanner);
-
-    // If check-in was successful, refresh the profile data
-    if (result == true) {
-      _loadUserProfile();
-    }
-  }
-
   void _showLogoutConfirmation(BuildContext context) {
     showDialog(
       context: context,
@@ -1004,43 +956,43 @@ class _UserProfileScreenState extends State<UserProfileScreen>
   }
 
   // Process direct check-out for the user
-  Future<void> _processDirectCheckOut() async {
-    try {
-      final userId = widget.userId ?? _profileService.getCurrentUserId();
-      if (userId == null) {
-        _showMessage('No hay un usuario autenticado', isError: true);
-        return;
-      }
+  // Future<void> _processDirectCheckOut() async {
+  //   try {
+  //     final userId = widget.userId ?? _profileService.getCurrentUserId();
+  //     if (userId == null) {
+  //       _showMessage('No hay un usuario autenticado', isError: true);
+  //       return;
+  //     }
 
-      // Show loading indicator
-      setState(() {
-        _isLoading = true;
-      });
+  //     // Show loading indicator
+  //     setState(() {
+  //       _isLoading = true;
+  //     });
 
-      // Process the check-out
-      final response = await _attendanceService.checkOut(userId);
+  //     // Process the check-out
+  //     final response = await _attendanceService.checkOut(userId);
 
-      setState(() {
-        _isLoading = false;
-      });
+  //     setState(() {
+  //       _isLoading = false;
+  //     });
 
-      if (response['success']) {
-        _showMessage(
-          'Salida registrada exitosamente. Tiempo en el gimnasio: ${response['duration']}',
-          isSuccess: true,
-        );
-        // Refresh profile data to update attendance status
-        _loadUserProfile();
-      } else {
-        _showMessage(response['message'], isError: true);
-      }
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      _showMessage('Error al registrar la salida: $e', isError: true);
-    }
-  }
+  //     if (response['success']) {
+  //       _showMessage(
+  //         'Salida registrada exitosamente. Tiempo en el gimnasio: ${response['duration']}',
+  //         isSuccess: true,
+  //       );
+  //       // Refresh profile data to update attendance status
+  //       _loadUserProfile();
+  //     } else {
+  //       _showMessage(response['message'], isError: true);
+  //     }
+  //   } catch (e) {
+  //     setState(() {
+  //       _isLoading = false;
+  //     });
+  //     _showMessage('Error al registrar la salida: $e', isError: true);
+  //   }
+  // }
 
   // Show message using SnackBar
   void _showMessage(

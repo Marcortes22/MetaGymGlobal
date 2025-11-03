@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../models/muscle_group.dart';
 import '../../../services/exercise_service.dart';
 import '../../../services/muscle_groups_service.dart';
+import '../../../utils/gym_context_helper.dart';
 
 class CreateExerciseScreen extends StatefulWidget {
   const CreateExerciseScreen({super.key});
@@ -18,13 +19,13 @@ class _CreateExerciseScreenState extends State<CreateExerciseScreen> {
   String _name = '';
   String? _selectedMuscleGroup;
   String _equipment = '';
-  String _selectedDifficulty = 'Beginner';
+  String _selectedDifficulty = 'Principiante';
   String _videoUrl = '';
   String _description = '';
   bool _isLoading = false;
   List<MuscleGroup> _muscleGroups = [];
 
-  final List<String> _difficulties = ['Beginner', 'Intermediate', 'Advanced'];
+  final List<String> _difficulties = ['Principiante', 'Intermedio', 'Avanzado'];
 
   @override
   void initState() {
@@ -60,10 +61,12 @@ class _CreateExerciseScreenState extends State<CreateExerciseScreen> {
     });
 
     try {
+      final gymContext = context.gymContext;
       _formKey.currentState!.save();
 
       await _exerciseService.createExercise(
         name: _name,
+        gymId: gymContext.gymId,
         muscleGroupId: _selectedMuscleGroup!,
         equipment: _equipment,
         difficulty: _selectedDifficulty,

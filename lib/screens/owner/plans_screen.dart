@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gym_app/services/membership_service.dart';
 import 'package:gym_app/models/membership.dart';
+import '../../../utils/gym_context_helper.dart';
 
 class PlansScreen extends StatefulWidget {
   const PlansScreen({super.key});
@@ -458,11 +459,13 @@ class _PlansScreenState extends State<PlansScreen> {
                 onPressed: () async {
                   if (_formKey.currentState!.validate()) {
                     try {
+                      final gymContext = context.gymContext;
                       await _membershipService.createMembership(
                         name: _nameController.text,
                         price: double.parse(_priceController.text),
                         durationDays: int.parse(_durationController.text),
                         description: _descriptionController.text,
+                        gymId: gymContext.gymId,
                       );
                       if (mounted) {
                         Navigator.pop(context);
@@ -492,6 +495,7 @@ class _PlansScreenState extends State<PlansScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final gymContext = context.gymContext;
     return Scaffold(
       backgroundColor: const Color(0xFF1A1A1A),
       appBar: AppBar(
@@ -511,7 +515,7 @@ class _PlansScreenState extends State<PlansScreen> {
         ),
       ),
       body: FutureBuilder<List<Membership>>(
-        future: _membershipService.getAllMemberships(),
+        future: _membershipService.getAllMemberships(gymContext.gymId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(

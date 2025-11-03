@@ -3,6 +3,7 @@ import '../../../models/exercise.dart';
 import '../../../models/muscle_group.dart';
 import '../../../services/exercise_service.dart';
 import '../../../services/muscle_groups_service.dart';
+import '../../../utils/gym_context_helper.dart';
 import './exercise_detail_screen.dart';
 import './create_exercise_screen.dart';
 import './edit_exercise_screen.dart';
@@ -37,7 +38,9 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
   }
 
   Future<void> _loadExercises() async {
-    final exercises = await _exerciseService.getAll();
+    // 🔥 Obtener contexto del gym
+    final gymContext = context.gymContext;
+    final exercises = await _exerciseService.getAll(gymContext.gymId);
 
     final newExercisesByMuscleGroup = <String, List<Exercise>>{};
 

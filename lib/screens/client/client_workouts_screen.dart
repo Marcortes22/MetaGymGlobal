@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/workout.dart';
 import '../../services/assigned_workout_service.dart';
 import '../../services/workout_service.dart';
+import '../../utils/gym_context_helper.dart';
 import 'workout_details_screen.dart';
 
 class ClientWorkoutsScreen extends StatefulWidget {
@@ -33,7 +34,12 @@ class _ClientWorkoutsScreenState extends State<ClientWorkoutsScreen> {
   }
 
   Future<List<Workout>> _getWorkouts(String userId) async {
-    final assignedWorkouts = await _assignedWorkoutService.getByUser(userId);
+    // 🔥 Obtener contexto del gym
+    final gymContext = context.gymContext;
+    final assignedWorkouts = await _assignedWorkoutService.getByUser(
+      userId,
+      gymContext.gymId,
+    );
     final workouts = <Workout>[];
 
     for (var assigned in assignedWorkouts) {
@@ -49,13 +55,15 @@ class _ClientWorkoutsScreenState extends State<ClientWorkoutsScreen> {
     final lowerTitle = title.toLowerCase();
     if (lowerTitle.contains('full') || lowerTitle.contains('completo')) {
       return const AssetImage('assets/memberships/premium.jpg');
-    } else if (lowerTitle.contains('upper') || lowerTitle.contains('superior')) {
+    } else if (lowerTitle.contains('upper') ||
+        lowerTitle.contains('superior')) {
       return const AssetImage('assets/memberships/medium.jpg');
     } else if (lowerTitle.contains('core') || lowerTitle.contains('abs')) {
       return const AssetImage('assets/memberships/basic.jpg');
     } else if (lowerTitle.contains('cardio')) {
       return const AssetImage('assets/memberships/premium.jpg');
-    } else if (lowerTitle.contains('strength') || lowerTitle.contains('fuerza')) {
+    } else if (lowerTitle.contains('strength') ||
+        lowerTitle.contains('fuerza')) {
       return const AssetImage('assets/memberships/medium.jpg');
     }
     return const AssetImage('assets/memberships/basic.jpg');
@@ -67,11 +75,7 @@ class _ClientWorkoutsScreenState extends State<ClientWorkoutsScreen> {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              color: const Color(0xFFFF8C42),
-              size: 20,
-            ),
+            Icon(icon, color: const Color(0xFFFF8C42), size: 20),
             const SizedBox(width: 4),
             Text(
               value,
@@ -84,13 +88,7 @@ class _ClientWorkoutsScreenState extends State<ClientWorkoutsScreen> {
           ],
         ),
         const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.grey[400],
-            fontSize: 12,
-          ),
-        ),
+        Text(label, style: TextStyle(color: Colors.grey[400], fontSize: 12)),
       ],
     );
   }
@@ -176,9 +174,8 @@ class _ClientWorkoutsScreenState extends State<ClientWorkoutsScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => WorkoutDetailsScreen(
-                        workout: workout,
-                      ),
+                      builder:
+                          (context) => WorkoutDetailsScreen(workout: workout),
                     ),
                   );
                 },
@@ -266,9 +263,10 @@ class _ClientWorkoutsScreenState extends State<ClientWorkoutsScreen> {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => WorkoutDetailsScreen(
-                                          workout: workout,
-                                        ),
+                                        builder:
+                                            (context) => WorkoutDetailsScreen(
+                                              workout: workout,
+                                            ),
                                       ),
                                     );
                                   },
@@ -283,8 +281,9 @@ class _ClientWorkoutsScreenState extends State<ClientWorkoutsScreen> {
                                       borderRadius: BorderRadius.circular(20),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: const Color(0xFFFF8C42)
-                                              .withOpacity(0.3),
+                                          color: const Color(
+                                            0xFFFF8C42,
+                                          ).withOpacity(0.3),
                                           blurRadius: 8,
                                           offset: const Offset(0, 2),
                                         ),

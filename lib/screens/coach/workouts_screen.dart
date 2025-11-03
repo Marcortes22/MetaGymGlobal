@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../../../models/workout.dart';
 import '../../../services/workout_service.dart';
+import '../../../utils/gym_context_helper.dart';
 import './create_workout_screen.dart';
 import './workout_detail_screen.dart';
 import './edit_workout_screen.dart';
@@ -21,13 +21,17 @@ class _WorkoutsScreenState extends State<WorkoutsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadWorkouts();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadWorkouts();
+    });
   }
 
   Future<void> _loadWorkouts() async {
     setState(() => _isLoading = true);
     try {
-      final allWorkouts = await _workoutService.getAll();
+      // 🔥 Obtener contexto del gym
+      final gymContext = context.gymContext;
+      final allWorkouts = await _workoutService.getAll(gymContext.gymId);
       final Map<String, List<Workout>> workoutMap = {
         'Beginner': [],
         'Intermediate': [],

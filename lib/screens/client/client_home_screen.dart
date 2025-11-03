@@ -5,6 +5,7 @@ import 'package:gym_app/screens/client/client_workouts_screen.dart';
 import 'package:gym_app/services/subscription_service.dart';
 import 'package:gym_app/services/membership_service.dart';
 import 'package:gym_app/routes/AppRoutes.dart';
+import '../../../utils/gym_context_helper.dart';
 
 class ClientHomeScreen extends StatefulWidget {
   const ClientHomeScreen({super.key});
@@ -42,7 +43,11 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
     }
 
     try {
-      final subscription = await _subscriptionService.getActiveSubscriptionForUser(user.uid);
+      // 🔥 Obtener contexto del gym
+      final gymContext = context.gymContext;
+
+      final subscription = await _subscriptionService
+          .getActiveSubscriptionForUser(user.uid, gymContext.gymId);
       if (subscription == null) {
         return {
           'isValid': false,
@@ -52,8 +57,11 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
         };
       }
 
-      final membership = await _membershipService.getMembershipById(subscription.membershipId);
-      final daysRemaining = await _subscriptionService.getDaysRemainingInSubscription(user.uid);
+      final membership = await _membershipService.getMembershipById(
+        subscription.membershipId,
+      );
+      final daysRemaining = await _subscriptionService
+          .getDaysRemainingInSubscription(user.uid, gymContext.gymId);
       final endDate = subscription.endDate;
 
       return {
@@ -115,7 +123,10 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: isValid ? Colors.green : Colors.red,
                     borderRadius: BorderRadius.circular(20),
@@ -134,20 +145,16 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (endDate.isNotEmpty) Text(
-                  'Vence: $endDate',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 16,
+                if (endDate.isNotEmpty)
+                  Text(
+                    'Vence: $endDate',
+                    style: const TextStyle(color: Colors.white70, fontSize: 16),
                   ),
-                ),
-                if (daysRemaining > 0) Text(
-                  'Días restantes: $daysRemaining',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 16,
+                if (daysRemaining > 0)
+                  Text(
+                    'Días restantes: $daysRemaining',
+                    style: const TextStyle(color: Colors.white70, fontSize: 16),
                   ),
-                ),
               ],
             ),
           ],
@@ -188,7 +195,8 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
               ],
             );
           },
-        ),        actions: [
+        ),
+        actions: [
           // const ActivateTotenModeButton(),
           IconButton(
             icon: const Icon(Icons.person, color: Color(0xFFFF8C42)),
@@ -204,7 +212,8 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [              const Text(
+            children: [
+              const Text(
                 'Tu progreso',
                 style: TextStyle(
                   color: Colors.grey,
@@ -240,6 +249,23 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
               ),
               const SizedBox(height: 32),
               const Text(
+                'Membresías',
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              const SizedBox(height: 20),
+              _buildCard(
+                'Ver Planes de\nMembresía',
+                'assets/memberships/premium.jpg',
+                () {
+                  Navigator.pushNamed(context, AppRoutes.memberships);
+                },
+              ),
+              const SizedBox(height: 32),
+              const Text(
                 'Estado de Membresía',
                 style: TextStyle(
                   color: Colors.grey,
@@ -254,7 +280,9 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(
                       child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF8C42)),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Color(0xFFFF8C42),
+                        ),
                       ),
                     );
                   }
@@ -268,12 +296,15 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                     );
                   }
 
-                  return _buildMembershipCard(snapshot.data ?? {
-                    'isValid': false,
-                    'membershipName': 'Error',
-                    'endDate': '',
-                    'daysRemaining': 0,
-                  });
+                  return _buildMembershipCard(
+                    snapshot.data ??
+                        {
+                          'isValid': false,
+                          'membershipName': 'Error',
+                          'endDate': '',
+                          'daysRemaining': 0,
+                        },
+                  );
                 },
               ),
             ],

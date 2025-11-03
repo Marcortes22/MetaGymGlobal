@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/workout.dart';
-import '../../models/assigned_workout.dart';
 import '../../services/assigned_workout_service.dart';
 import '../../services/workout_service.dart';
+import '../../utils/gym_context_helper.dart';
 import 'workout_details_screen.dart';
 
 class ClientProgressScreen extends StatefulWidget {
@@ -29,7 +29,12 @@ class _ClientProgressScreenState extends State<ClientProgressScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       try {
-        final assignedWorkouts = await _assignedWorkoutService.getByUser(user.uid);
+        // 🔥 Obtener contexto del gym
+        final gymContext = context.gymContext;
+        final assignedWorkouts = await _assignedWorkoutService.getByUser(
+          user.uid,
+          gymContext.gymId,
+        );
         final completedWorkouts = [];
 
         for (final assigned in assignedWorkouts) {
@@ -45,7 +50,9 @@ class _ClientProgressScreenState extends State<ClientProgressScreen> {
         }
 
         setState(() {
-          _completedWorkouts = List<Map<String, dynamic>>.from(completedWorkouts);
+          _completedWorkouts = List<Map<String, dynamic>>.from(
+            completedWorkouts,
+          );
           _isLoading = false;
         });
       } catch (e) {
@@ -66,13 +73,15 @@ class _ClientProgressScreenState extends State<ClientProgressScreen> {
     final lowerTitle = title.toLowerCase();
     if (lowerTitle.contains('full') || lowerTitle.contains('completo')) {
       return const AssetImage('assets/workouts/full_body.jpg');
-    } else if (lowerTitle.contains('upper') || lowerTitle.contains('superior')) {
+    } else if (lowerTitle.contains('upper') ||
+        lowerTitle.contains('superior')) {
       return const AssetImage('assets/workouts/upper_body.jpg');
     } else if (lowerTitle.contains('core') || lowerTitle.contains('abs')) {
       return const AssetImage('assets/workouts/core.jpg');
     } else if (lowerTitle.contains('cardio')) {
       return const AssetImage('assets/workouts/cardio.jpg');
-    } else if (lowerTitle.contains('strength') || lowerTitle.contains('fuerza')) {
+    } else if (lowerTitle.contains('strength') ||
+        lowerTitle.contains('fuerza')) {
       return const AssetImage('assets/workouts/strength.jpg');
     }
     return const AssetImage('assets/workouts/full_body.jpg');
@@ -96,92 +105,90 @@ class _ClientProgressScreenState extends State<ClientProgressScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text(
-          'Mi Progreso',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Mi Progreso', style: TextStyle(color: Colors.white)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Color(0xFFFF8C42)),
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: _completedWorkouts.isEmpty
-          ? const Center(
-              child: Text(
-                'No has completado ninguna rutina todavía',
-                style: TextStyle(color: Colors.white70),
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _completedWorkouts.length,
-              itemBuilder: (context, index) {
-                final item = _completedWorkouts[index];
-                final workout = item['workout'] as Workout;
-                final completedAt = item['completedAt'] as DateTime;
+      body:
+          _completedWorkouts.isEmpty
+              ? const Center(
+                child: Text(
+                  'No has completado ninguna rutina todavía',
+                  style: TextStyle(color: Colors.white70),
+                ),
+              )
+              : ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: _completedWorkouts.length,
+                itemBuilder: (context, index) {
+                  final item = _completedWorkouts[index];
+                  final workout = item['workout'] as Workout;
+                  final completedAt = item['completedAt'] as DateTime;
 
-                return Card(
-                  color: const Color(0xFF2A2A2A),
-                  margin: const EdgeInsets.only(bottom: 16),
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => WorkoutDetailsScreen(
-                            workout: workout,
+                  return Card(
+                    color: const Color(0xFF2A2A2A),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (context) =>
+                                    WorkoutDetailsScreen(workout: workout),
                           ),
-                        ),
-                      );
-                    },
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Image(
-                          image: _getWorkoutImage(workout.title),
-                          height: 150,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                workout.title,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Completada el ${completedAt.day}/${completedAt.month}/${completedAt.year}',
-                                style: const TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                workout.description,
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
+                        );
+                      },
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Image(
+                            image: _getWorkoutImage(workout.title),
+                            height: 150,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
                           ),
-                        ),
-                      ],
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  workout.title,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Completada el ${completedAt.day}/${completedAt.month}/${completedAt.year}',
+                                  style: const TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  workout.description,
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                );
-              },
-            ),
+                  );
+                },
+              ),
     );
   }
 }

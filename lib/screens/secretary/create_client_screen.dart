@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart' as auth;
 import '../../../services/user_service.dart';
 import '../../../services/membership_service.dart';
 import '../../../models/membership.dart';
+import '../../../utils/gym_context_helper.dart';
 import 'weight_selection_screen.dart';
 import 'height_selection_screen.dart';
 
@@ -38,14 +39,22 @@ class _CreateClientScreenState extends State<CreateClientScreen> {
   @override
   void initState() {
     super.initState();
-    _loadMemberships();
     // Generate PIN automatically
-    _pin = (1000 + DateTime.now().millisecond + DateTime.now().microsecond % 9000).toString();
+    _pin =
+        (1000 + DateTime.now().millisecond + DateTime.now().microsecond % 9000)
+            .toString();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadMemberships();
+    });
   }
 
   Future<void> _loadMemberships() async {
     try {
-      final memberships = await _membershipService.getAllMemberships();
+      // 🔥 Obtener contexto del gym
+      final gymContext = context.gymContext;
+      final memberships = await _membershipService.getAllMemberships(
+        gymContext.gymId,
+      );
       setState(() {
         _memberships = memberships;
         _loadingMemberships = false;
@@ -84,12 +93,17 @@ class _CreateClientScreenState extends State<CreateClientScreen> {
       setState(() => _isLoading = true);
 
       try {
+        // 🔥 Obtener contexto del gym
+        final gymContext = context.gymContext;
+
         // Roles fijos para Cliente
         final roles = [
           {'id': 'cli', 'name': 'Cliente'},
         ];
 
         await _userService.createUser(
+          gymId: gymContext.gymId,
+          tenantId: gymContext.tenantId,
           email: _email.trim(),
           password: _password,
           name: _name.trim(),
@@ -105,25 +119,31 @@ class _CreateClientScreenState extends State<CreateClientScreen> {
           final userId = newUser.uid;
           // Actualizar altura, peso, membresía y PIN en Firestore
           final heightVal = int.tryParse(_height) ?? 0;
-          final weightVal = int.tryParse(_weight) ?? 0;          await FirebaseFirestore.instance
+          final weightVal = int.tryParse(_weight) ?? 0;
+          await FirebaseFirestore.instance
               .collection('users')
               .doc(userId)
               .update({
-            'height': heightVal,
-            'weight': weightVal,
-            'membershipId': _selectedMembershipId,
-            'pin': _pin,            'dateOfBirth': _birthDate!.toIso8601String().split('T')[0],
-            'createdAt': DateTime.now().toIso8601String().split('T')[0],
-          });
+                'height': heightVal,
+                'weight': weightVal,
+                'membershipId': _selectedMembershipId,
+                'pin': _pin,
+                'dateOfBirth': _birthDate!.toIso8601String().split('T')[0],
+                'createdAt': DateTime.now().toIso8601String().split('T')[0],
+              });
 
           // Crear suscripción para el usuario
           final selectedMembership = _memberships.firstWhere(
-              (m) => m.id == _selectedMembershipId);          final now = DateTime.now();
+            (m) => m.id == _selectedMembershipId,
+          );
+          final now = DateTime.now();
           await FirebaseFirestore.instance.collection('subscriptions').add({
             'userId': userId,
             'membershipId': _selectedMembershipId,
             'startDate': Timestamp.fromDate(now),
-            'endDate': Timestamp.fromDate(now.add(Duration(days: selectedMembership.durationDays))),
+            'endDate': Timestamp.fromDate(
+              now.add(Duration(days: selectedMembership.durationDays)),
+            ),
             'status': 'active',
             'type': 'regular',
             'paymentAmount': selectedMembership.price,
@@ -154,10 +174,7 @@ class _CreateClientScreenState extends State<CreateClientScreen> {
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
         );
       } finally {
         if (mounted) {
@@ -290,7 +307,9 @@ class _CreateClientScreenState extends State<CreateClientScreen> {
                                     surface: Color(0xFF2A2A2A),
                                     onSurface: Colors.white,
                                   ),
-                                  dialogBackgroundColor: const Color(0xFF1A1A1A),
+                                  dialogBackgroundColor: const Color(
+                                    0xFF1A1A1A,
+                                  ),
                                 ),
                                 child: child!,
                               );
@@ -310,11 +329,15 @@ class _CreateClientScreenState extends State<CreateClientScreen> {
                               borderSide: BorderSide(color: Colors.grey[700]!),
                             ),
                           ),
-                          child: Text(                            _birthDate == null
+                          child: Text(
+                            _birthDate == null
                                 ? 'Seleccionar fecha'
                                 : '${_birthDate!.year}-${_birthDate!.month.toString().padLeft(2, '0')}-${_birthDate!.day.toString().padLeft(2, '0')}',
                             style: TextStyle(
-                              color: _birthDate == null ? Colors.grey[400] : Colors.white,
+                              color:
+                                  _birthDate == null
+                                      ? Colors.grey[400]
+                                      : Colors.white,
                             ),
                           ),
                         ),
@@ -343,13 +366,14 @@ class _CreateClientScreenState extends State<CreateClientScreen> {
                         },
                         onSaved: (value) => _phone = value ?? '',
                       ),
-                      const SizedBox(height: 16),                      // Altura
+                      const SizedBox(height: 16), // Altura
                       InkWell(
                         onTap: () async {
                           final result = await Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const HeightSelectionScreen(),
+                              builder:
+                                  (context) => const HeightSelectionScreen(),
                             ),
                           );
                           if (result != null && mounted) {
@@ -367,9 +391,14 @@ class _CreateClientScreenState extends State<CreateClientScreen> {
                             ),
                           ),
                           child: Text(
-                            _height.isEmpty ? 'Seleccionar altura' : '$_height cm',
+                            _height.isEmpty
+                                ? 'Seleccionar altura'
+                                : '$_height cm',
                             style: TextStyle(
-                              color: _height.isEmpty ? Colors.grey[400] : Colors.white,
+                              color:
+                                  _height.isEmpty
+                                      ? Colors.grey[400]
+                                      : Colors.white,
                             ),
                           ),
                         ),
@@ -382,7 +411,8 @@ class _CreateClientScreenState extends State<CreateClientScreen> {
                           final result = await Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const WeightSelectionScreen(),
+                              builder:
+                                  (context) => const WeightSelectionScreen(),
                             ),
                           );
                           if (result != null && mounted) {
@@ -400,9 +430,14 @@ class _CreateClientScreenState extends State<CreateClientScreen> {
                             ),
                           ),
                           child: Text(
-                            _weight.isEmpty ? 'Seleccionar peso' : '$_weight kg',
+                            _weight.isEmpty
+                                ? 'Seleccionar peso'
+                                : '$_weight kg',
                             style: TextStyle(
-                              color: _weight.isEmpty ? Colors.grey[400] : Colors.white,
+                              color:
+                                  _weight.isEmpty
+                                      ? Colors.grey[400]
+                                      : Colors.white,
                             ),
                           ),
                         ),
@@ -467,7 +502,9 @@ class _CreateClientScreenState extends State<CreateClientScreen> {
                       if (_loadingMemberships)
                         const Center(
                           child: CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF8C42)),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Color(0xFFFF8C42),
+                            ),
                           ),
                         )
                       else if (_memberships.isEmpty)
@@ -490,15 +527,16 @@ class _CreateClientScreenState extends State<CreateClientScreen> {
                           ),
                           style: const TextStyle(color: Colors.white),
                           dropdownColor: const Color(0xFF1A1A1A),
-                          items: _memberships.map((membership) {
-                            return DropdownMenuItem<String>(
-                              value: membership.id,
-                              child: Text(
-                                '${membership.name} - \$${membership.price} (${membership.durationDays} días)',
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                            );
-                          }).toList(),
+                          items:
+                              _memberships.map((membership) {
+                                return DropdownMenuItem<String>(
+                                  value: membership.id,
+                                  child: Text(
+                                    '${membership.name} - \$${membership.price} (${membership.durationDays} días)',
+                                    style: const TextStyle(color: Colors.white),
+                                  ),
+                                );
+                              }).toList(),
                           onChanged: (String? newValue) {
                             setState(() {
                               _selectedMembershipId = newValue;
@@ -527,23 +565,26 @@ class _CreateClientScreenState extends State<CreateClientScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                child:
+                    _isLoading
+                        ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
+                        )
+                        : const Text(
+                          'Crear Cliente',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
                         ),
-                      )
-                    : const Text(
-                        'Crear Cliente',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
               ),
             ],
           ),

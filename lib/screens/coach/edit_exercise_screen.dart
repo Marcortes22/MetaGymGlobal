@@ -3,6 +3,7 @@ import '../../../models/exercise.dart';
 import '../../../models/muscle_group.dart';
 import '../../../services/exercise_service.dart';
 import '../../../services/muscle_groups_service.dart';
+import '../../../utils/gym_context_helper.dart';
 
 class EditExerciseScreen extends StatefulWidget {
   final Exercise exercise;
@@ -28,9 +29,9 @@ class _EditExerciseScreenState extends State<EditExerciseScreen> {
   late String _selectedDifficulty;
 
   final List<String> _difficultyLevels = [
-    'Beginner',
-    'Intermediate',
-    'Advanced',
+    'Principiante',
+    'Intermedio',
+    'Avanzado',
   ];
 
   @override
@@ -72,8 +73,10 @@ class _EditExerciseScreenState extends State<EditExerciseScreen> {
     setState(() => _isLoading = true);
 
     try {
+      final gymContext = context.gymContext;
       final updatedExercise = Exercise(
         id: widget.exercise.id,
+        gymId: gymContext.gymId,
         name: _nameController.text,
         muscleGroupId: _selectedMuscleGroup,
         equipment: _equipmentController.text,
