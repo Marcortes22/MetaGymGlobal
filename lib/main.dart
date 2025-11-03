@@ -14,6 +14,8 @@ import 'package:gym_app/screens/auth/welcome_screen.dart';
 import 'package:gym_app/routes/AppRoutes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
+import 'package:provider/provider.dart';
+import 'package:gym_app/providers/gym_context_provider.dart';
 
 import 'package:gym_app/services/service_locator.dart';
 import 'package:gym_app/services/auth_service.dart';
@@ -28,21 +30,19 @@ void main() async {
     debugPrint("⚠️ .env no encontrado o vacío: $e");
   }
 
-  // Inicializar Firebase solo si no existe ninguna app
-  // Esto previene el error duplicate-app en hot restart
-  if (Firebase.apps.isEmpty) {
-    try {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
-      debugPrint("✅ Firebase inicializado correctamente");
-    } catch (e) {
-      debugPrint("❌ Error al inicializar Firebase: $e");
-    }
-  } else {
-    debugPrint(
-      "✅ Firebase ya estaba inicializado (${Firebase.apps.length} apps)",
+  // Inicializar Firebase de forma segura
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
     );
+    debugPrint("✅ Firebase inicializado correctamente");
+  } catch (e) {
+    if (e.toString().contains('duplicate-app')) {
+      debugPrint("✅ Firebase ya estaba inicializado");
+    } else {
+      debugPrint("❌ Error al inicializar Firebase: $e");
+      rethrow; // Re-lanzar si es un error real
+    }
   }
 
   ServiceLocator.setupServices();
@@ -64,53 +64,29 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   late bool _isTotenMode;
-  Timer? _totenModeCheckTimer;
 
   @override
   void initState() {
     super.initState();
     _isTotenMode = widget.isToten;
-    // Set up a listener to check for shared preferences changes
-    _checkTotenModePreference();
-
-    // Set up periodic check for totem mode changes
-    _totenModeCheckTimer = Timer.periodic(
-      const Duration(seconds: 2), // Check every 2 seconds
-      (_) => _checkTotenModePreference(),
-    );
-  }
-
-  @override
-  void dispose() {
-    _totenModeCheckTimer?.cancel();
-    super.dispose();
-  }
-
-  // Check totem mode preference periodically
-  Future<void> _checkTotenModePreference() async {
-    final prefs = await SharedPreferences.getInstance();
-    final isTotenMode = prefs.getBool('modo_toten') ?? false;
-
-    if (mounted && _isTotenMode != isTotenMode) {
-      setState(() {
-        _isTotenMode = isTotenMode;
-      });
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Gym App',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+    return ChangeNotifierProvider(
+      create: (_) => GymContextProvider(),
+      child: MaterialApp(
+        title: 'Gym App',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        ),
+        initialRoute: '/',
+        routes: {
+          '/': (_) => _isTotenMode ? const CheckInScreen() : const RootPage(),
+          ...AppRoutes.routes,
+        },
       ),
-      initialRoute: '/',
-      routes: {
-        '/': (_) => _isTotenMode ? const CheckInScreen() : const RootPage(),
-        ...AppRoutes.routes,
-      },
     );
   }
 }
@@ -123,90 +99,132 @@ class RootPage extends StatefulWidget {
 }
 
 class _RootPageState extends State<RootPage> {
-  bool _checkingTotenMode = true;
-  bool _isTotenMode = false;
   final _authService = AuthService();
+  User? _currentUser;
+  List<String?>? _userRoles;
+  bool _isLoadingRoles = false;
+  bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    _checkTotenMode();
+    debugPrint('🚀 RootPage initState');
+    _initializeAuth();
   }
 
-  Future<void> _checkTotenMode() async {
-    final prefs = await SharedPreferences.getInstance();
-    final isTotenMode = prefs.getBool('modo_toten') ?? false;
+  Future<void> _initializeAuth() async {
+    try {
+      _currentUser = FirebaseAuth.instance.currentUser;
+      debugPrint('👤 Usuario actual: ${_currentUser?.uid ?? "NINGUNO"}');
 
-    if (mounted) {
-      setState(() {
-        _isTotenMode = isTotenMode;
-        _checkingTotenMode = false;
-      });
+      if (_currentUser != null) {
+        await _loadUserRoles();
+      }
+
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Error inicializando auth: $e');
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadUserRoles() async {
+    if (_isLoadingRoles) return;
+
+    debugPrint('🔄 Iniciando carga de roles...');
+    setState(() => _isLoadingRoles = true);
+
+    try {
+      final roles = await _authService
+          .getUserRoles(_currentUser!.uid)
+          .timeout(const Duration(seconds: 5));
+
+      debugPrint('✅ Roles cargados: $roles');
+
+      if (mounted) {
+        setState(() {
+          _userRoles = roles;
+          _isLoadingRoles = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Error cargando roles: $e');
+
+      // Si hay error, hacer logout automático
+      try {
+        await FirebaseAuth.instance.signOut();
+        debugPrint('🔥 Logout automático por error de roles');
+      } catch (_) {}
+
+      if (mounted) {
+        setState(() {
+          _userRoles = [];
+          _isLoadingRoles = false;
+          _currentUser = null;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // If we're still checking totem mode preference, show loading
-    if (_checkingTotenMode) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    // Mostrar loading mientras inicializa
+    if (!_isInitialized) {
+      debugPrint('⏳ Esperando inicialización...');
+      return const Scaffold(
+        backgroundColor: Color(0xFF1A1A1A),
+        body: Center(child: CircularProgressIndicator(color: Colors.white)),
+      );
     }
 
-    // If totem mode is active, show CheckInScreen directly
-    if (_isTotenMode) {
-      return const CheckInScreen();
+    // Si no hay usuario, mostrar welcome directamente
+    if (_currentUser == null) {
+      debugPrint('➡️ Mostrando WelcomeScreen (no hay usuario)');
+      return const WelcomeScreen();
     }
 
-    // Otherwise proceed with normal authentication flow
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-        if (!snapshot.hasData) {
-          return const WelcomeScreen();
-        }
+    // Si hay usuario pero no hay roles cargados, mostrar loading
+    if (_userRoles == null) {
+      debugPrint('⏳ Cargando roles...');
+      return const Scaffold(
+        backgroundColor: Color(0xFF1A1A1A),
+        body: Center(child: CircularProgressIndicator(color: Colors.white)),
+      );
+    }
 
-        final user = snapshot.data!;
+    // Si no hay roles, mostrar welcome
+    if (_userRoles!.isEmpty) {
+      debugPrint('➡️ Mostrando WelcomeScreen (sin roles)');
+      return const WelcomeScreen();
+    }
 
-        return FutureBuilder<List<String?>>(
-          future: _authService.getUserRoles(user.uid),
-          builder: (context, roleSnapshot) {
-            if (roleSnapshot.connectionState == ConnectionState.waiting) {
-              return const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
-              );
-            }
+    debugPrint('✅ Navegando a home screen con roles: $_userRoles');
 
-            final roles = roleSnapshot.data ?? [];
+    // Navegar según roles
+    if (_userRoles!.length == 1) {
+      switch (_userRoles!.first) {
+        case 'cli':
+          return const ClientHomeScreen();
+        case 'own':
+          return const OwnerHomeScreen();
+        case 'coa':
+          return const CoachHomeScreen();
+        case 'sec':
+          return const SecretaryHomeScreen();
+        default:
+          return const NoRoleScreen();
+      }
+    }
 
-            if (roles.isEmpty) {
-              return const NoRoleScreen();
-            }
-            if (roles.length == 1) {
-              switch (roles.first) {
-                case 'cli':
-                  return const ClientHomeScreen();
-                case 'own':
-                  return const OwnerHomeScreen();
-                case 'coa':
-                  return const CoachHomeScreen();
-                case 'sec':
-                  return const SecretaryHomeScreen();
-                default:
-                  return const NoRoleScreen();
-              }
-            }
-            // Si hay más de un rol, mostrar pantalla de selección
-            return RoleSelectionScreen(
-              roles: roles.whereType<String>().toList(),
-            );
-          },
-        );
-      },
-    );
+    // Múltiples roles
+    return RoleSelectionScreen(roles: _userRoles!.whereType<String>().toList());
   }
 }
