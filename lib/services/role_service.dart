@@ -17,8 +17,8 @@ class RoleService {
     }
   }
 
-  /// Obtiene los usuarios agrupados por rol para visualización
-  Future<List<Map<String, dynamic>>> getUsersByRole() async {
+  /// Obtiene los usuarios agrupados por rol para visualización (filtrado por gym)
+  Future<List<Map<String, dynamic>>> getUsersByRole(String gymId) async {
     final Map<String, List<Map<String, dynamic>>> usersByRole = {
       'own': [],
       'coa': [],
@@ -27,14 +27,18 @@ class RoleService {
     };
 
     try {
-      final QuerySnapshot<Map<String, dynamic>> usersSnapshot = 
-          await _db.collection('users').get();
+      final QuerySnapshot<Map<String, dynamic>> usersSnapshot =
+          await _db.collection('users').where('gymId', isEqualTo: gymId).get();
 
       _processUsers(usersSnapshot.docs, usersByRole);
       _sortUsersByName(usersByRole);
 
       return [
-        {'role': 'own', 'name': 'Administradores', 'users': usersByRole['own']!},
+        {
+          'role': 'own',
+          'name': 'Administradores',
+          'users': usersByRole['own']!,
+        },
         {'role': 'coa', 'name': 'Entrenadores', 'users': usersByRole['coa']!},
         {'role': 'sec', 'name': 'Secretarias', 'users': usersByRole['sec']!},
         {'role': 'cli', 'name': 'Clientes', 'users': usersByRole['cli']!},
@@ -51,24 +55,26 @@ class RoleService {
   ) {
     for (final doc in docs) {
       final Map<String, dynamic> userData = doc.data();
-      
+
       if (!userData.containsKey('roles')) continue;
-      
+
       final List<dynamic> rolesData = userData['roles'] as List<dynamic>;
       final String displayName = _getDisplayName(userData);
 
       for (final roleData in rolesData) {
         if (roleData is! Map) continue;
-        
+
         final String roleId = roleData['id'] as String? ?? '';
         if (roleId.isEmpty || !usersByRole.containsKey(roleId)) continue;
 
-        usersByRole[roleId]!.add(_createUserInfo(
-          userData: userData,
-          docId: doc.id,
-          displayName: displayName,
-          roleName: roleData['name'] as String? ?? '',
-        ));
+        usersByRole[roleId]!.add(
+          _createUserInfo(
+            userData: userData,
+            docId: doc.id,
+            displayName: displayName,
+            roleName: roleData['name'] as String? ?? '',
+          ),
+        );
       }
     }
   }
@@ -96,12 +102,12 @@ class RoleService {
       userData['surname2']?.toString() ?? '',
     ];
 
-    final String fullName = nameParts
-        .where((part) => part.isNotEmpty)
-        .join(' ')
-        .trim();
+    final String fullName =
+        nameParts.where((part) => part.isNotEmpty).join(' ').trim();
 
-    return fullName.isEmpty ? userData['email']?.toString() ?? 'Usuario sin nombre' : fullName;
+    return fullName.isEmpty
+        ? userData['email']?.toString() ?? 'Usuario sin nombre'
+        : fullName;
   }
 
   /// Ordena los usuarios por nombre dentro de cada rol

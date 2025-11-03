@@ -27,12 +27,18 @@ class AttendanceService {
         SubscriptionService();
   }
 
+  // 🔥 ACTUALIZADO - Registrar asistencia con gymId y tenantId
   Future<void> register(Attendance attendance) async {
     await _collection.add(attendance.toMap());
   }
 
-  Future<List<Attendance>> getByUser(String userId) async {
-    final snapshot = await _collection.where('userId', isEqualTo: userId).get();
+  // 🔥 ACTUALIZADO - Obtener asistencias por usuario Y gym
+  Future<List<Attendance>> getByUser(String userId, String gymId) async {
+    final snapshot =
+        await _collection
+            .where('userId', isEqualTo: userId)
+            .where('gymId', isEqualTo: gymId)
+            .get();
     return snapshot.docs
         .map(
           (doc) =>
@@ -41,17 +47,18 @@ class AttendanceService {
         .toList();
   }
 
-  /// Check if user has already checked in today
-  Future<bool> hasCheckedInToday(String userId) async {
+  /// 🔥 ACTUALIZADO - Check if user has already checked in today (en este gym)
+  Future<bool> hasCheckedInToday(String userId, String gymId) async {
     // Get start and end of today
     final now = DateTime.now();
     final startOfDay = DateTime(now.year, now.month, now.day);
     final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59);
 
-    // Query for attendance records for this user today
+    // Query for attendance records for this user today in this gym
     final snapshot =
         await _collection
             .where('userId', isEqualTo: userId)
+            .where('gymId', isEqualTo: gymId) // 🔥 NUEVO
             .where('date', isGreaterThanOrEqualTo: startOfDay)
             .where('date', isLessThanOrEqualTo: endOfDay)
             .limit(1)
@@ -113,24 +120,33 @@ class AttendanceService {
     return hasClientRole; // Only has client role
   }
 
-  // Get subscription status info
-  Future<Map<String, dynamic>> getSubscriptionInfo(String userId) async {
+  // 🔥 ACTUALIZADO - Get subscription status info (con gymId)
+  Future<Map<String, dynamic>> getSubscriptionInfo(
+    String userId,
+    String gymId,
+  ) async {
     final hasValidSubscription = await _subscriptionService
-        .hasValidSubscription(userId);
+        .hasValidSubscription(userId, gymId); // 🔥 ACTUALIZADO
     final daysRemaining = await _subscriptionService
-        .getDaysRemainingInSubscription(userId);
+        .getDaysRemainingInSubscription(userId, gymId); // 🔥 ACTUALIZADO
 
     return {'isValid': hasValidSubscription, 'daysRemaining': daysRemaining};
   }
 
-  // Check-in with PIN code
-  Future<Map<String, dynamic>> checkInWithPin(String pin) async {
+  // 🔥 ACTUALIZADO - Check-in with PIN code (con gymId y tenantId)
+  Future<Map<String, dynamic>> checkInWithPin(
+    String pin,
+    String gymId,
+    String tenantId,
+    Function(String) showMessage,
+  ) async {
     try {
-      // Find user with this PIN
+      // Find user with this PIN in this gym
       final userQuery =
           await FirebaseFirestore.instance
               .collection('users')
               .where('pin', isEqualTo: pin)
+              .where('gymId', isEqualTo: gymId) // 🔥 NUEVO
               .limit(1)
               .get();
 
@@ -141,21 +157,30 @@ class AttendanceService {
       final userId = userQuery.docs.first.id;
 
       // Check if user already checked in today
-      if (await hasCheckedInToday(userId)) {
+      if (await hasCheckedInToday(userId, gymId)) {
+        // 🔥 ACTUALIZADO
+        showMessage("Ya registraste tu asistencia hoy.");
         return {
           'success': false,
           'message': 'Ya registraste tu asistencia hoy',
         };
       }
+      // Check if the error is due to already checked in today
 
       // Check if user is client-only or has admin roles
       final isClientOnly = await this.isClientOnly(userId);
 
       if (isClientOnly) {
         // Client needs to have a valid subscription
-        final subscriptionInfo = await getSubscriptionInfo(userId);
+        final subscriptionInfo = await getSubscriptionInfo(
+          userId,
+          gymId,
+        ); // 🔥 ACTUALIZADO
 
         if (!subscriptionInfo['isValid']) {
+          showMessage(
+            "Su suscripción ha expirado. Por favor renueve su membresía.",
+          );
           return {
             'success': false,
             'message':
@@ -169,6 +194,8 @@ class AttendanceService {
           // Register attendance but warn about expiration
           final attendance = Attendance(
             id: '',
+            gymId: gymId, // 🔥 NUEVO
+            tenantId: tenantId, // 🔥 NUEVO
             userId: userId,
             date: DateTime.now(),
             checkInTime: DateTime.now(),
@@ -188,6 +215,8 @@ class AttendanceService {
       // Register attendance for admin users or clients with valid subscriptions
       final attendance = Attendance(
         id: '',
+        gymId: gymId, // 🔥 NUEVO
+        tenantId: tenantId, // 🔥 NUEVO
         userId: userId,
         date: DateTime.now(),
         checkInTime: DateTime.now(),
@@ -201,14 +230,19 @@ class AttendanceService {
     }
   }
 
-  /// Check-in with QR code
-  Future<Map<String, dynamic>> checkInWithQR(String qrData) async {
+  /// 🔥 ACTUALIZADO - Check-in with QR code (con gymId y tenantId)
+  Future<Map<String, dynamic>> checkInWithQR(
+    String qrData,
+    String gymId,
+    String tenantId,
+  ) async {
     try {
-      // Find user with this QR data
+      // Find user with this QR data in this gym
       final userQuery =
           await FirebaseFirestore.instance
               .collection('users')
               .where('qrCode', isEqualTo: qrData)
+              .where('gymId', isEqualTo: gymId) // 🔥 NUEVO
               .limit(1)
               .get();
 
@@ -219,7 +253,8 @@ class AttendanceService {
       final userId = userQuery.docs.first.id;
 
       // Check if user already checked in today
-      if (await hasCheckedInToday(userId)) {
+      if (await hasCheckedInToday(userId, gymId)) {
+        // 🔥 ACTUALIZADO
         return {
           'success': false,
           'message': 'Ya registraste tu asistencia hoy',
@@ -231,7 +266,10 @@ class AttendanceService {
 
       if (isClientOnly) {
         // Client needs to have a valid subscription
-        final subscriptionInfo = await getSubscriptionInfo(userId);
+        final subscriptionInfo = await getSubscriptionInfo(
+          userId,
+          gymId,
+        ); // 🔥 ACTUALIZADO
 
         if (!subscriptionInfo['isValid']) {
           return {
@@ -247,6 +285,8 @@ class AttendanceService {
           // Register attendance but warn about expiration
           final attendance = Attendance(
             id: '',
+            gymId: gymId, // 🔥 NUEVO
+            tenantId: tenantId, // 🔥 NUEVO
             userId: userId,
             date: DateTime.now(),
             checkInTime: DateTime.now(),
@@ -266,6 +306,8 @@ class AttendanceService {
       // Register attendance for admin users or clients with valid subscriptions
       final attendance = Attendance(
         id: '',
+        gymId: gymId, // 🔥 NUEVO
+        tenantId: tenantId, // 🔥 NUEVO
         userId: userId,
         date: DateTime.now(),
         checkInTime: DateTime.now(),
@@ -344,16 +386,20 @@ class AttendanceService {
   }
 
   /// Check if user has an ongoing session (checked in but not checked out yet today)
-  Future<Map<String, dynamic>> hasOngoingSession(String userId) async {
+  Future<Map<String, dynamic>> hasOngoingSession(
+    String userId,
+    String gymId,
+  ) async {
     // Get start and end of today
     final now = DateTime.now();
     final startOfDay = DateTime(now.year, now.month, now.day);
     final endOfDay = DateTime(now.year, now.month, now.day, 23, 59, 59);
 
-    // Query for attendance records for this user today
+    // Query for attendance records for this user today in this gym
     final snapshot =
         await _collection
             .where('userId', isEqualTo: userId)
+            .where('gymId', isEqualTo: gymId) // 🔥 AGREGADO
             .where('date', isGreaterThanOrEqualTo: startOfDay)
             .where('date', isLessThanOrEqualTo: endOfDay)
             .limit(1)
@@ -379,20 +425,37 @@ class AttendanceService {
   }
 
   /// Process a user check-out
-  Future<Map<String, dynamic>> checkOut(String userId) async {
+  Future<Map<String, dynamic>> checkOut(
+    String userId,
+    String gymId, // 🔥 AGREGADO
+    Function(String) showMessage,
+  ) async {
     try {
       // First, check if the user has an ongoing session
-      final ongoingSession = await hasOngoingSession(userId);
+      final ongoingSession = await hasOngoingSession(
+        userId,
+        gymId,
+      ); // 🔥 ACTUALIZADO
 
       if (!ongoingSession['hasOngoing']) {
+        showMessage("No hay una sesión activa para registrar la salida");
         return {
           'success': false,
           'message': 'No hay una sesión activa para registrar la salida',
         };
       }
 
-      final String attendanceId = ongoingSession['attendanceId'];
+      final String? attendanceId = ongoingSession['attendanceId'] as String?;
+      if (attendanceId == null) {
+        showMessage('Error: No se encontró el ID de asistencia');
+        return {
+          'success': false,
+          'message': 'Error: No se encontró el ID de asistencia',
+        };
+      }
+
       final checkInTime = (ongoingSession['checkInTime'] as Timestamp).toDate();
+
       final checkOutTime = DateTime.now();
 
       // Calculate session duration
@@ -403,6 +466,10 @@ class AttendanceService {
         'checkOutTime': checkOutTime,
       });
 
+      showMessage(
+        'Salida registrada exitosamente, Tiempo: "${durationMinutes ~/ 60}h ${durationMinutes % 60}m"',
+      );
+
       return {
         'success': true,
         'message': 'Salida registrada exitosamente',
@@ -411,6 +478,7 @@ class AttendanceService {
       };
     } catch (e) {
       print('Error during check-out: $e');
+      showMessage('Error al registrar la salida: ${e.toString()}');
       return {
         'success': false,
         'message': 'Error al registrar la salida: ${e.toString()}',
@@ -419,7 +487,10 @@ class AttendanceService {
   }
 
   /// Process a check-out using PIN code
-  Future<Map<String, dynamic>> checkOutWithPin(String pin) async {
+  Future<Map<String, dynamic>> checkOutWithPin(
+    String pin,
+    Function(String) showMessage,
+  ) async {
     try {
       // Find user with this PIN
       final userQuery =
@@ -430,40 +501,18 @@ class AttendanceService {
               .get();
 
       if (userQuery.docs.isEmpty) {
+        showMessage('PIN no válido');
         return {'success': false, 'message': 'PIN no válido'};
       }
 
       final userId = userQuery.docs.first.id;
+      final userData = userQuery.docs.first.data();
+      final gymId = userData['gymId'] ?? ''; // 🔥 AGREGADO
 
       // Process the check-out
-      return await checkOut(userId);
+      return await checkOut(userId, gymId, showMessage); // 🔥 ACTUALIZADO
     } catch (e) {
       print('Error checking out with PIN: $e');
-      return {'success': false, 'message': 'Error: ${e.toString()}'};
-    }
-  }
-
-  /// Process a check-out using QR code
-  Future<Map<String, dynamic>> checkOutWithQR(String qrData) async {
-    try {
-      // Find user with this QR data
-      final userQuery =
-          await FirebaseFirestore.instance
-              .collection('users')
-              .where('qrCode', isEqualTo: qrData)
-              .limit(1)
-              .get();
-
-      if (userQuery.docs.isEmpty) {
-        return {'success': false, 'message': 'QR no válido'};
-      }
-
-      final userId = userQuery.docs.first.id;
-
-      // Process the check-out
-      return await checkOut(userId);
-    } catch (e) {
-      print('Error checking out with QR: $e');
       return {'success': false, 'message': 'Error: ${e.toString()}'};
     }
   }

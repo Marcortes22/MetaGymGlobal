@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class AssignedWorkout {
   final String id;
   final String gymId; // 🔥 NUEVO
@@ -23,7 +25,10 @@ class AssignedWorkout {
       gymId: data['gymId'] ?? '', // 🔥 NUEVO
       userId: data['userId'],
       workoutId: data['workoutId'],
-      assignedAt: DateTime.parse(data['assignedAt']),
+      assignedAt:
+          (data['assignedAt'] is String)
+              ? DateTime.parse(data['assignedAt'])
+              : (data['assignedAt'] as Timestamp).toDate(),
       status: data['status'],
       notes: data['notes'],
     );

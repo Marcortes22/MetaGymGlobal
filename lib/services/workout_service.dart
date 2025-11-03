@@ -12,8 +12,9 @@ class WorkoutService {
     return Workout.fromMap(doc.id, doc.data() as Map<String, dynamic>);
   }
 
-  Future<List<Workout>> getAll() async {
-    final snapshot = await _collection.get();
+  // 🔥 ACTUALIZADO - Obtener workouts por gym
+  Future<List<Workout>> getAll(String gymId) async {
+    final snapshot = await _collection.where('gymId', isEqualTo: gymId).get();
     return snapshot.docs
         .map(
           (doc) => Workout.fromMap(doc.id, doc.data() as Map<String, dynamic>),
@@ -21,8 +22,13 @@ class WorkoutService {
         .toList();
   }
 
-  Future<List<Workout>> getByDifficulty(String level) async {
-    final snapshot = await _collection.where('level', isEqualTo: level).get();
+  // 🔥 ACTUALIZADO - Obtener workouts por dificultad Y gym
+  Future<List<Workout>> getByDifficulty(String level, String gymId) async {
+    final snapshot =
+        await _collection
+            .where('gymId', isEqualTo: gymId)
+            .where('level', isEqualTo: level)
+            .get();
     return snapshot.docs
         .map(
           (doc) => Workout.fromMap(doc.id, doc.data() as Map<String, dynamic>),
@@ -30,7 +36,9 @@ class WorkoutService {
         .toList();
   }
 
+  // 🔥 ACTUALIZADO - Crear workout con gymId
   Future<Workout> createWorkout({
+    required String gymId,
     required String title,
     required String description,
     required List<WorkoutExercise> exercises,
@@ -38,6 +46,7 @@ class WorkoutService {
     required String level,
   }) async {
     final workoutData = {
+      'gymId': gymId, // 🔥 NUEVO
       'title': title,
       'description': description,
       'exercises': exercises.map((e) => e.toMap()).toList(),
@@ -48,6 +57,7 @@ class WorkoutService {
     final docRef = await _collection.add(workoutData);
     return Workout(
       id: docRef.id,
+      gymId: gymId, // 🔥 NUEVO
       title: title,
       description: description,
       exercises: exercises,
@@ -62,5 +72,19 @@ class WorkoutService {
 
   Future<void> deleteWorkout(String id) async {
     await _collection.doc(id).delete();
+  }
+
+  // 🔥 NUEVO - Obtener workouts creados por un entrenador específico
+  Future<List<Workout>> getByCreator(String creatorId, String gymId) async {
+    final snapshot =
+        await _collection
+            .where('gymId', isEqualTo: gymId)
+            .where('createdBy', isEqualTo: creatorId)
+            .get();
+    return snapshot.docs
+        .map(
+          (doc) => Workout.fromMap(doc.id, doc.data() as Map<String, dynamic>),
+        )
+        .toList();
   }
 }

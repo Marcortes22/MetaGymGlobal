@@ -6,8 +6,9 @@ class ExerciseService {
     'exercises',
   );
 
-  Future<List<Exercise>> getAll() async {
-    final snapshot = await _collection.get();
+  // 🔥 ACTUALIZADO - Obtener ejercicios por gym
+  Future<List<Exercise>> getAll(String gymId) async {
+    final snapshot = await _collection.where('gymId', isEqualTo: gymId).get();
     return snapshot.docs
         .map(
           (doc) => Exercise.fromMap(doc.id, doc.data() as Map<String, dynamic>),
@@ -21,7 +22,9 @@ class ExerciseService {
     return Exercise.fromMap(doc.id, doc.data() as Map<String, dynamic>);
   }
 
+  // 🔥 ACTUALIZADO - Crear ejercicio con gymId
   Future<Exercise> createExercise({
+    required String gymId,
     required String name,
     required String muscleGroupId,
     required String equipment,
@@ -31,6 +34,7 @@ class ExerciseService {
   }) async {
     // Crear el mapa de datos del ejercicio
     final exerciseData = {
+      'gymId': gymId, // 🔥 NUEVO
       'name': name,
       'muscleGroupId': muscleGroupId,
       'equipment': equipment,
@@ -48,6 +52,7 @@ class ExerciseService {
     // Retornar el objeto Exercise
     return Exercise(
       id: id,
+      gymId: gymId, // 🔥 NUEVO
       name: name,
       muscleGroupId: muscleGroupId,
       equipment: equipment,
@@ -64,5 +69,22 @@ class ExerciseService {
 
   Future<void> deleteExercise(String id) async {
     await _collection.doc(id).delete();
+  }
+
+  // 🔥 NUEVO - Buscar ejercicios por grupo muscular
+  Future<List<Exercise>> getByMuscleGroup(
+    String gymId,
+    String muscleGroupId,
+  ) async {
+    final snapshot =
+        await _collection
+            .where('gymId', isEqualTo: gymId)
+            .where('muscleGroupId', isEqualTo: muscleGroupId)
+            .get();
+    return snapshot.docs
+        .map(
+          (doc) => Exercise.fromMap(doc.id, doc.data() as Map<String, dynamic>),
+        )
+        .toList();
   }
 }

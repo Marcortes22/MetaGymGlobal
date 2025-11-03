@@ -24,7 +24,7 @@ class Attendance {
       id: id,
       gymId: data['gymId'] ?? '', // 🔥 NUEVO
       tenantId: data['tenantId'] ?? '', // 🔥 NUEVO
-      userId: data['userId'],
+      userId: data['userId'] ?? '',
       date: (data['date'] as Timestamp).toDate(),
       checkInTime: (data['checkInTime'] as Timestamp).toDate(),
       checkOutTime:

@@ -25,8 +25,10 @@ class UserService {
         auth.FirebaseAuth.instance;
   }
 
-  /// Crea un nuevo usuario con autenticación y datos en Firestore
+  /// 🔥 ACTUALIZADO - Crea un nuevo usuario con autenticación y datos en Firestore (con gymId y tenantId)
   Future<void> createUser({
+    required String gymId,
+    required String tenantId,
     required String email,
     required String password,
     required String name,
@@ -47,6 +49,8 @@ class UserService {
       // Crear documento de usuario en Firestore
       final user = User(
         id: userId,
+        gymId: gymId, // 🔥 NUEVO
+        tenantId: tenantId, // 🔥 NUEVO
         userId: userId,
         name: name,
         surname1: surname1 ?? '',
@@ -91,10 +95,10 @@ class UserService {
     }
   }
 
-  /// Obtiene todos los usuarios
-  Future<List<User>> getAllUsers() async {
+  /// 🔥 ACTUALIZADO - Obtiene todos los usuarios (por gym, NO global)
+  Future<List<User>> getAllUsers(String gymId) async {
     try {
-      final snapshot = await _collection.get();
+      final snapshot = await _collection.where('gymId', isEqualTo: gymId).get();
       return snapshot.docs
           .map((doc) => User.fromMap(doc.id, doc.data()))
           .toList();
@@ -236,6 +240,51 @@ class UserService {
     } catch (e) {
       print('Error getting user details: $e');
       return {'error': 'Error al obtener información del usuario: $e'};
+    }
+  }
+
+  // 🔥 NUEVO - Obtener usuarios por rol en un gym
+  Future<List<User>> getUsersByRole(String roleId, String gymId) async {
+    try {
+      final snapshot = await _collection.where('gymId', isEqualTo: gymId).get();
+
+      // Filtrar usuarios que tengan el rol específico
+      return snapshot.docs
+          .map((doc) => User.fromMap(doc.id, doc.data()))
+          .where((user) => user.roles.any((role) => role['id'] == roleId))
+          .toList();
+    } on FirebaseException {
+      return [];
+    }
+  }
+
+  // 🔥 NUEVO - Obtener todos los entrenadores de un gym
+  Future<List<User>> getTrainers(String gymId) async {
+    return getUsersByRole('coa', gymId);
+  }
+
+  // 🔥 NUEVO - Obtener todos los clientes de un gym
+  Future<List<User>> getClients(String gymId) async {
+    return getUsersByRole('cli', gymId);
+  }
+
+  // 🔥 NUEVO - Buscar usuarios por nombre en un gym
+  Future<List<User>> searchUsersByName(String query, String gymId) async {
+    try {
+      final snapshot = await _collection.where('gymId', isEqualTo: gymId).get();
+
+      final lowerQuery = query.toLowerCase();
+      return snapshot.docs
+          .map((doc) => User.fromMap(doc.id, doc.data()))
+          .where(
+            (user) =>
+                user.name.toLowerCase().contains(lowerQuery) ||
+                user.surname1.toLowerCase().contains(lowerQuery) ||
+                user.email.toLowerCase().contains(lowerQuery),
+          )
+          .toList();
+    } on FirebaseException {
+      return [];
     }
   }
 }

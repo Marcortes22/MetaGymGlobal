@@ -47,7 +47,10 @@ class ProfileService {
   }
 
   /// Get full user profile information including membership and roles
-  Future<Map<String, dynamic>> getUserProfile({String? userId}) async {
+  Future<Map<String, dynamic>> getUserProfile({
+    String? userId,
+    required String gymId,
+  }) async {
     try {
       // Use provided userId or current user
       final uid = userId ?? getCurrentUserId();
@@ -79,10 +82,10 @@ class ProfileService {
           membershipName = membershipDoc.data()!['name'];
         } // Get subscription details
         daysRemaining = await _subscriptionService
-            .getDaysRemainingInSubscription(uid);
+            .getDaysRemainingInSubscription(uid, gymId);
 
         final subscription = await _subscriptionService
-            .getActiveSubscriptionForUser(uid);
+            .getActiveSubscriptionForUser(uid, gymId);
         if (subscription != null) {
           final end = subscription.endDate;
           membershipEndDate = '${end.day}/${end.month}/${end.year}';
@@ -112,7 +115,7 @@ class ProfileService {
           rolesList.map((role) => role['name'].toString()).toList();
 
       // Get attendance statistics
-      final attendanceStats = await getAttendanceStats(uid);
+      final attendanceStats = await getAttendanceStats(uid, gymId);
 
       return {
         'userId': uid,
@@ -148,17 +151,21 @@ class ProfileService {
   }
 
   /// Get user's attendance statistics
-  Future<Map<String, dynamic>> getAttendanceStats(String userId) async {
+  Future<Map<String, dynamic>> getAttendanceStats(
+    String userId,
+    String gymId,
+  ) async {
     try {
       // Get today's date information
       final now = DateTime.now();
       final startOfMonth = DateTime(now.year, now.month, 1);
 
-      // Query all attendance records for this user
+      // Query all attendance records for this user in this gym
       final attendanceQuery =
           await _firestore
               .collection('attendances')
               .where('userId', isEqualTo: userId)
+              .where('gymId', isEqualTo: gymId)
               .orderBy('date', descending: true)
               .get();
 
@@ -226,7 +233,10 @@ class ProfileService {
         'monthlyCheckIns': monthlyCheckIns,
         'currentStreak': currentStreak,
         'lastCheckIn': lastCheckIn,
-        'hasCheckedInToday': await _attendanceService.hasCheckedInToday(userId),
+        'hasCheckedInToday': await _attendanceService.hasCheckedInToday(
+          userId,
+          gymId,
+        ),
       };
     } catch (e) {
       print('Error getting attendance stats: $e');
@@ -241,7 +251,8 @@ class ProfileService {
 
   /// Get user's recent attendance history
   Future<List<Map<String, dynamic>>> getUserAttendanceHistory(
-    String userId, {
+    String userId,
+    String gymId, {
     int limit = 20,
   }) async {
     try {
@@ -249,6 +260,7 @@ class ProfileService {
           await _firestore
               .collection('attendances')
               .where('userId', isEqualTo: userId)
+              .where('gymId', isEqualTo: gymId)
               .orderBy('date', descending: true)
               .limit(limit)
               .get();
@@ -295,12 +307,15 @@ class ProfileService {
 
   /// Get attendance records for all users (for admin views)
   Future<List<Map<String, dynamic>>> getAllUsersAttendance({
+    required String gymId,
     int limit = 100,
     DateTime? startDate,
     DateTime? endDate,
   }) async {
     try {
-      Query query = _firestore.collection('attendances');
+      Query query = _firestore
+          .collection('attendances')
+          .where('gymId', isEqualTo: gymId);
 
       // Apply date filters if provided
       if (startDate != null) {

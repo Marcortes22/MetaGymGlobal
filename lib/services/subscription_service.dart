@@ -21,8 +21,9 @@ class SubscriptionService {
     await _collection.add(sub.toMap());
   }
 
-  Future<List<Subscription>> getAll() async {
-    final snapshot = await _collection.get();
+  // 🔥 ACTUALIZADO - Obtener todas las suscripciones por gym
+  Future<List<Subscription>> getAll(String gymId) async {
+    final snapshot = await _collection.where('gymId', isEqualTo: gymId).get();
     return snapshot.docs
         .map(
           (doc) =>
@@ -31,11 +32,15 @@ class SubscriptionService {
         .toList();
   }
 
-  // Get active subscription for a user
-  Future<Subscription?> getActiveSubscriptionForUser(String userId) async {
+  // 🔥 ACTUALIZADO - Get active subscription for a user (en este gym)
+  Future<Subscription?> getActiveSubscriptionForUser(
+    String userId,
+    String gymId,
+  ) async {
     final snapshot =
         await _collection
             .where('userId', isEqualTo: userId)
+            .where('gymId', isEqualTo: gymId) // 🔥 NUEVO
             .where('status', isEqualTo: 'active')
             .orderBy('endDate', descending: true)
             .limit(1)
@@ -49,9 +54,9 @@ class SubscriptionService {
     return Subscription.fromMap(doc.id, doc.data() as Map<String, dynamic>);
   }
 
-  // Check if a user has a valid subscription (not expired)
-  Future<bool> hasValidSubscription(String userId) async {
-    final subscription = await getActiveSubscriptionForUser(userId);
+  // 🔥 ACTUALIZADO - Check if a user has a valid subscription (not expired)
+  Future<bool> hasValidSubscription(String userId, String gymId) async {
+    final subscription = await getActiveSubscriptionForUser(userId, gymId);
     if (subscription == null) {
       return false;
     }
@@ -60,9 +65,13 @@ class SubscriptionService {
     final now = DateTime.now();
     return subscription.endDate.isAfter(now);
   }
-  // Calculate days remaining in subscription
-  Future<int> getDaysRemainingInSubscription(String userId) async {
-    final subscription = await getActiveSubscriptionForUser(userId);
+
+  // 🔥 ACTUALIZADO - Calculate days remaining in subscription
+  Future<int> getDaysRemainingInSubscription(
+    String userId,
+    String gymId,
+  ) async {
+    final subscription = await getActiveSubscriptionForUser(userId, gymId);
     if (subscription == null) {
       return 0;
     }
@@ -74,6 +83,35 @@ class SubscriptionService {
 
     // Calcular la diferencia incluyendo el día actual
     final difference = subscription.endDate.difference(now);
-    return (difference.inHours / 24).ceil(); // Redondear hacia arriba para incluir el día actual
+    return (difference.inHours / 24)
+        .ceil(); // Redondear hacia arriba para incluir el día actual
+  }
+
+  // 🔥 NUEVO - Obtener historial de suscripciones de un usuario
+  Future<List<Subscription>> getUserSubscriptionHistory(
+    String userId,
+    String gymId,
+  ) async {
+    final snapshot =
+        await _collection
+            .where('userId', isEqualTo: userId)
+            .where('gymId', isEqualTo: gymId)
+            .orderBy('createdAt', descending: true)
+            .get();
+
+    return snapshot.docs
+        .map(
+          (doc) =>
+              Subscription.fromMap(doc.id, doc.data() as Map<String, dynamic>),
+        )
+        .toList();
+  }
+
+  // 🔥 NUEVO - Cancelar suscripción
+  Future<void> cancelSubscription(String subscriptionId) async {
+    await _collection.doc(subscriptionId).update({
+      'status': 'cancelled',
+      'cancelledAt': Timestamp.fromDate(DateTime.now()),
+    });
   }
 }

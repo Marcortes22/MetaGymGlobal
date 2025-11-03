@@ -6,8 +6,9 @@ class MembershipService {
     'memberships',
   );
 
-  Future<List<Membership>> getAllMemberships() async {
-    final snapshot = await _collection.get();
+  // 🔥 ACTUALIZADO - Obtener membresías por gym
+  Future<List<Membership>> getAllMemberships(String gymId) async {
+    final snapshot = await _collection.where('gymId', isEqualTo: gymId).get();
     return snapshot.docs
         .map(
           (doc) =>
@@ -22,18 +23,21 @@ class MembershipService {
     return Membership.fromMap(doc.id, doc.data() as Map<String, dynamic>);
   }
 
+  // 🔥 ACTUALIZADO - Crear membresía con gymId
   Future<void> createMembership({
+    required String gymId,
     required String name,
     required double price,
     required int durationDays,
     required String description,
   }) async {
     await _collection.add({
+      'gymId': gymId, // 🔥 NUEVO
       'name': name,
       'price': price,
       'durationDays': durationDays,
       'description': description,
-      'createdAt': DateTime.now(),
+      'createdAt': Timestamp.fromDate(DateTime.now()),
     });
   }
 
